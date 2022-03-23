@@ -1,0 +1,7 @@
+pretrained_model: 'data/06_models/model_cine_tag_v1_sd.pt'
+trained_model: 'data/06_models/model_cine_tag_v8_sd.pt'
+train_params:
+  learning_rate: 1e-2
+  weight_decay: 1e-3
+  momentum: .9
+  epochs: 75
