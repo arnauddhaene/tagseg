@@ -13,19 +13,6 @@ from tagseg.metrics.metrics import DiceLoss, ShapeLoss, dice_score, evaluate
 from tagseg.models.unet import UNet
 
 
-def create_aim_run(experiment_name: str) -> aim.Run:
-
-    log = logging.getLogger(__name__)
-    conf_params = ConfigLoader("conf/base").get("parameters*", "parameters*/**")
-
-    run = aim.Run(experiment=experiment_name)
-    run["hparams"] = {**conf_params}
-
-    log.info(f"Created aim.Run instance of name {experiment_name}")
-
-    return dict(run=run)
-
-
 def load_model(data_params: Dict[str, nn.Module]):
 
     log = logging.getLogger(__name__)
@@ -58,7 +45,7 @@ def train_model(
     loader_val: DataLoader,
     device: torch.device,
     train_params: Dict[str, Any],
-    run: aim.Run,
+    experiment_name: str,
 ) -> Dict[str, nn.Module]:
 
     log = logging.getLogger(__name__)
@@ -67,6 +54,11 @@ def train_model(
         index_to_class = dict(zip(range(2), ["BG", "MYO"]))
     else:
         index_to_class = dict(zip(range(4), ["BG", "LV", "MYO", "RV"]))
+
+    run = aim.Run(experiment=experiment_name)
+    run["hparams"] = {**conf_params}
+
+    log.info(f"Created aim.Run instance of name {experiment_name}")
 
     amp = True
     model = model.to(device)
