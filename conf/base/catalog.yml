@@ -7,6 +7,18 @@ raw_acdc_data:
   type: tagseg.data.acdc_dataset.AcdcDataSet
   filepath: data/01_raw/acdc-training
 
+dmd_data:
+  type: tagseg.data.dmd_dataset.DmdDataSet
+  filepath: data/01_raw/dmd_roi
+
+dmd_time_data:
+  type: tagseg.data.dmd_dataset.DmdTimeDataSet
+  filepath: data/01_raw/dmd_roi
+
+raw_acdc_data:
+  type: tagseg.data.acdc_dataset.AcdcDataSet
+  filepath: data/01_raw/acdc-training
+
 acdc_data_tagged: 
   type: pickle.PickleDataSet
   filepath: data/05_model_input/acdc_dataset_tagged.pt

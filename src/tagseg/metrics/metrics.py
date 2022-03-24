@@ -226,7 +226,7 @@ def shape_loss(
     Args:
         input: logits tensor with shape :math:`(N, C, H, W)` where C = number of classes.
         label: labels tensor with shape :math:`(N, H, W)` where each value
-          is :math:`0 ≤ targets[i] ≤ C−1`.
+          is :math:`0 ≤ targets[i] ≤ C-1`.
 
     Returns:
         torch.Tensor: shape-based loss. Value between 0. and 1.
@@ -368,9 +368,13 @@ def evaluate(
                         aim.Image(mask, caption="prediction"),
                         name="images",
                         epoch=epoch,
+                        context=dict(subset="val"),
                     )
                     run.track(
-                        aim.Image(target, caption="target"), name="images", epoch=epoch
+                        aim.Image(target, caption="target"),
+                        name="images",
+                        epoch=epoch,
+                        context=dict(subset="val"),
                     )
 
             dice += dice_score(outputs, targets)

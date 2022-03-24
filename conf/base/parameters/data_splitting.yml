@@ -1,2 +1,2 @@
 train_val_split: .75
-batch_size: 32
+batch_size: 4

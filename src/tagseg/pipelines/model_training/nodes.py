@@ -78,25 +78,25 @@ def train_model(
     # Define loss
     criterion = nn.CrossEntropyLoss()
     dice_criterion = DiceLoss(exclude_bg=True)
-    shape_criterion = ShapeLoss(exclude_bg=False)
+    shape_criterion = ShapeLoss(exclude_bg=True)
 
     def loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         return (
             criterion(outputs, targets)
             + dice_criterion(outputs, targets)
-            + 1e-2 * shape_criterion(outputs, targets)
+            + 1e-3 * shape_criterion(outputs, targets)
         )
 
     learning_rate: float = train_params["learning_rate"]
     weight_decay: float = train_params["weight_decay"]
-    momentum: float = train_params["momentum"]
+    # momentum: float = train_params["momentum"]
     epochs: int = train_params["epochs"]
 
-    optimizer = torch.optim.RMSprop(
+    optimizer = torch.optim.Adam(
         model.parameters(),
         lr=learning_rate,
         weight_decay=weight_decay,
-        momentum=momentum,
+        # momentum=momentum,
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=2)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
@@ -156,7 +156,7 @@ def train_model(
         run.track(acc_loss, name="loss", epoch=epoch, context=dict(subset="train"))
 
         train_perf = dice / len(loader_train)
-        avg_dice = train_perf.mean()
+        avg_dice = train_perf[1:].mean()
 
         for i, val in enumerate(train_perf):
             run.track(
@@ -178,7 +178,7 @@ def train_model(
             device=device,
         )
         run.track(val_loss, name="loss", epoch=epoch, context=dict(subset="val"))
-        avg_val_dice = val_perf.mean()
+        avg_val_dice = val_perf[1:].mean()
         scheduler.step(avg_val_dice)
 
         for i, val in enumerate(val_perf):
@@ -193,7 +193,7 @@ def train_model(
 
         pbar.set_description(status)
 
-        return dict(model=model)
+    return model
 
 
 def save_model(model: nn.Module, path: str) -> None:

@@ -20,13 +20,16 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "loader_val",
                     "device",
                     "params:train_params",
-                    "params:experiment_name"
+                    "params:experiment_name",
                 ],
                 "trained_model",
                 name="train_model",
             ),
             node(
-                save_model, ["trained_model", "params:trained_model"], None, name="save_model"
+                save_model,
+                ["trained_model", "params:trained_model"],
+                None,
+                name="save_model",
             ),
         ]
     )

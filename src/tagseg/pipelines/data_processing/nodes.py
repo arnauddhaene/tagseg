@@ -6,6 +6,7 @@ from kedro.extras.datasets.pickle import PickleDataSet
 from torch.utils.data import TensorDataset
 
 from tagseg.data.acdc_dataset import AcdcDataSet
+from tagseg.data.dmd_dataset import DmdDataSet
 
 
 def preprocess_acdc(params: Dict[str, Any]) -> TensorDataset:
@@ -40,4 +41,16 @@ def preprocess_acdc(params: Dict[str, Any]) -> TensorDataset:
         # Save dataset for next time
         dataset.save(acdc.load())
         log.info("Requested dataset saved to file.")
-        return dict(dataset=dataset.load())
+        return dataset.load()
+
+
+def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
+
+    log = logging.getLogger(__name__)
+
+    catalog = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
+    path = catalog['dmd_data']['filepath']
+
+    log.info(f"Loading requested dataset from raw files at {path}")
+
+    return DmdDataSet(filepath=path).load()

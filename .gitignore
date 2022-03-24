@@ -6,6 +6,7 @@ conf/local/**
 !conf/local/.gitkeep
 .telemetry
 .aim/
+.vscode
 
 # ignore potentially sensitive credentials files
 conf/**/*credentials*

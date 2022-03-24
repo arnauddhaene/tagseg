@@ -1,7 +1,7 @@
-pretrained_model: 'data/06_models/model_cine_tag_v1_sd.pt'
-trained_model: 'data/06_models/model_cine_tag_vINF_sd.pt'
+pretrained_model: 'data/06_models/model_cine_tag_only_myo_v0.pt'
+trained_model: 'data/06_models/model_cine_tag_only_myo_v0_finetuned_dmd_v3.pt'
 train_params:
-  learning_rate: .01
-  weight_decay: .001
+  learning_rate: .001
+  weight_decay: .00001
   momentum: .9
-  epochs: 75
+  epochs: 50
