@@ -354,7 +354,7 @@ def evaluate(
         ):
             images, targets = images.double().to(device), targets.long().to(device)
             # predict the mask
-            outputs = model(images)
+            outputs, _, _ = model(images)
 
             if track_images:
                 masks = F.softmax(outputs, dim=1).argmax(dim=1).detach().cpu().numpy()

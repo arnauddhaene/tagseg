@@ -5,12 +5,15 @@ import aim
 import kornia.augmentation as K
 import torch
 from kedro.config import ConfigLoader
+from kornia.utils import one_hot
 from torch import nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from tagseg.metrics.metrics import DiceLoss, ShapeLoss, dice_score, evaluate
 from tagseg.models.unet import UNet
+from tagseg.data.utils import directional_field
 
 
 def load_model(data_params: Dict[str, nn.Module]):
@@ -131,6 +134,9 @@ def train_model(
             optimizer.zero_grad(set_to_none=True)
 
             batch_pbar.set_description(f"Acummulated loss: {acc_loss:.4f}")
+            
+            df_inp = one_hot(targets.long(), model.n_classes).numpy()
+
             # move to device
             # target is index of classes
             inputs, targets = inputs.double().to(device), targets.to(device)
@@ -138,10 +144,13 @@ def train_model(
             # Run augmentation pipeline every batch
             inputs, targets = train_aug(inputs, targets.unsqueeze(1))
             targets = targets.squeeze(1).long()
+            target_dfs = torch.Tensor(directional_field(df_inp)).double().to(device)
 
             with torch.cuda.amp.autocast(enabled=amp):
-                outputs = model(inputs)
-                loss = loss_fn(outputs, targets)
+                outputs, dfs, auxsegs = model(inputs)
+                loss = loss_fn(outputs, targets) \
+                    + F.mse_loss(dfs, target_dfs) \
+                    + F.cross_entropy(auxsegs, targets)
 
             grad_scaler.scale(loss).backward()
             grad_scaler.step(optimizer)
