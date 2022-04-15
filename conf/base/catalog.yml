@@ -7,6 +7,10 @@ raw_acdc_data:
   type: tagseg.data.acdc_dataset.AcdcDataSet
   filepath: data/01_raw/acdc-training
 
+raw_scd_data:
+  type: tagseg.data.scd_dataset.ScdDataSet
+  filepath: data/01_raw/sunnybrook
+
 dmd_data:
   type: tagseg.data.dmd_dataset.DmdDataSet
   filepath: data/01_raw/dmd_roi
@@ -26,6 +30,14 @@ acdc_data_tagged:
 acdc_data_cine: 
   type: pickle.PickleDataSet
   filepath: data/05_model_input/acdc_dataset_cine.pt
+
+scd_data_tagged: 
+  type: pickle.PickleDataSet
+  filepath: data/05_model_input/scd_dataset_tagged.pt
+
+scd_data_cine: 
+  type: pickle.PickleDataSet
+  filepath: data/05_model_input/scd_dataset_cine.pt
 
 acdc_data_cine_only_myo: 
   type: pickle.PickleDataSet

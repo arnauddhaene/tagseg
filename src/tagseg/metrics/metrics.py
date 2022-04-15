@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Dict
 
 import aim
 import numpy as np
@@ -308,7 +308,7 @@ class ShapeLoss(nn.Module):
 def evaluate(
     model: nn.Module,
     dataloader: DataLoader,
-    loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+    loss_fn: Callable[[Dict[str, torch.Tensor], torch.Tensor], torch.Tensor],
     track_images: bool = False,
     run: aim.Run = None,
     epoch: int = -1,
@@ -354,10 +354,10 @@ def evaluate(
         ):
             images, targets = images.double().to(device), targets.long().to(device)
             # predict the mask
-            outputs, _, _ = model(images)
+            outputs = dict(logits=model(images)[0])
 
             if track_images:
-                masks = F.softmax(outputs, dim=1).argmax(dim=1).detach().cpu().numpy()
+                masks = F.softmax(outputs['logits'], dim=1).argmax(dim=1).detach().cpu().numpy()
                 factor = round(256 / model.n_classes)
                 for mask, target in zip(masks, targets.detach().cpu().numpy()):
                     mask, target = (
@@ -377,7 +377,7 @@ def evaluate(
                         context=dict(subset="val"),
                     )
 
-            dice += dice_score(outputs, targets)
+            dice += dice_score(outputs['logits'], targets)
             val_loss += loss_fn(outputs, targets).item()
 
     model.train()

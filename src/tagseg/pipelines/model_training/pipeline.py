@@ -17,6 +17,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 [
                     "model",
                     "loader_train",
+                    "loader_train_ss",
                     "loader_val",
                     "device",
                     "params:train_params",

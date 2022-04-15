@@ -5,26 +5,28 @@ import aim
 import kornia.augmentation as K
 import torch
 from kedro.config import ConfigLoader
-from kornia.utils import one_hot
 from torch import nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from monai.networks import nets
 
 from tagseg.metrics.metrics import DiceLoss, ShapeLoss, dice_score, evaluate
-from tagseg.models.unet import UNet
-from tagseg.data.utils import directional_field
+# from tagseg.models.unet_ss import UNetSS
 
 
-def load_model(data_params: Dict[str, nn.Module]):
+def load_model(data_params: Dict[str, Any]) -> Dict[str, Any]:
 
     log = logging.getLogger(__name__)
     conf_params = ConfigLoader("conf/base").get("parameters*", "parameters*/**")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    only_myo = data_params["only_myo"]
-    model = UNet(n_channels=1, n_classes=(2 if only_myo else 4), bilinear=True).double()
+    # only_myo = data_params["only_myo"]
+    # model = UNetSS(n_channels=1, n_classes=(2 if only_myo else 4), bilinear=True).double()
+    model = nets.SegResNetVAE(
+        in_channels=1, out_channels=2,
+        input_image_size=(256, 256), spatial_dims=2
+    ).double()
 
     pretrained_path = conf_params["pretrained_model"]
     if pretrained_path is not None:
@@ -36,7 +38,7 @@ def load_model(data_params: Dict[str, nn.Module]):
 
     if device.type == "cuda":
         model = nn.DataParallel(model)
-        model.n_classes = model.module.n_classes
+        model.n_classes = 2  # model.module.n_classes
         log.info("Model parallelized on CUDA")
 
     return dict(model=model, device=device)
@@ -45,6 +47,7 @@ def load_model(data_params: Dict[str, nn.Module]):
 def train_model(
     model: nn.Module,
     loader_train: DataLoader,
+    loader_train_ss: DataLoader,
     loader_val: DataLoader,
     device: torch.device,
     train_params: Dict[str, Any],
@@ -78,16 +81,32 @@ def train_model(
         data_keys=["input", "mask"],
     )
 
+    ss_aug = K.AugmentationSequential(
+        K.RandomGaussianNoise(p=proba),
+        K.RandomSharpness(p=proba),
+        K.RandomGaussianBlur(kernel_size=(3, 3), sigma=(0.1, 0.1), p=proba),
+    )
+
     # Define loss
     criterion = nn.CrossEntropyLoss()
     dice_criterion = DiceLoss(exclude_bg=True)
     shape_criterion = ShapeLoss(exclude_bg=True)
+    
+    # Self-supervised cosine embedding loss
+    ss_criterion = nn.CosineEmbeddingLoss()
 
-    def loss_fn(outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    def loss_fn(outputs: Dict[str, torch.Tensor], targets: torch.Tensor) -> torch.Tensor:
         return (
-            criterion(outputs, targets)
-            + dice_criterion(outputs, targets)
-            + 1e-3 * shape_criterion(outputs, targets)
+            criterion(outputs['logits'], targets)
+            + dice_criterion(outputs['logits'], targets)
+            + 1e-3 * shape_criterion(outputs['logits'], targets)
+        )
+
+    def ss_loss_fn(outputs_a: Dict[str, torch.Tensor], outputs_b: Dict[str, torch.Tensor]) -> torch.Tensor:
+        return ss_criterion(
+            outputs_a['intermediate'].flatten(start_dim=1, end_dim=3),
+            outputs_b['intermediate'].flatten(start_dim=1, end_dim=3),
+            torch.ones(conf_params['batch_size']).to(device)
         )
 
     learning_rate: float = train_params["learning_rate"]
@@ -99,7 +118,6 @@ def train_model(
         model.parameters(),
         lr=learning_rate,
         weight_decay=weight_decay,
-        # momentum=momentum,
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=2)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
@@ -135,8 +153,6 @@ def train_model(
 
             batch_pbar.set_description(f"Acummulated loss: {acc_loss:.4f}")
             
-            df_inp = one_hot(targets.long(), model.n_classes).numpy()
-
             # move to device
             # target is index of classes
             inputs, targets = inputs.double().to(device), targets.to(device)
@@ -144,22 +160,52 @@ def train_model(
             # Run augmentation pipeline every batch
             inputs, targets = train_aug(inputs, targets.unsqueeze(1))
             targets = targets.squeeze(1).long()
-            target_dfs = torch.Tensor(directional_field(df_inp)).double().to(device)
 
             with torch.cuda.amp.autocast(enabled=amp):
-                outputs, dfs, auxsegs = model(inputs)
-                loss = loss_fn(outputs, targets) \
-                    + F.mse_loss(dfs, target_dfs) \
-                    + F.cross_entropy(auxsegs, targets)
+                outputs = dict(logits=model(inputs)[0])
+                loss = loss_fn(outputs, targets)
 
             grad_scaler.scale(loss).backward()
             grad_scaler.step(optimizer)
             grad_scaler.update()
 
-            dice += dice_score(outputs, targets)
+            dice += dice_score(outputs['logits'], targets)
             acc_loss += loss.item()
 
-        acc_loss /= len(loader_train)
+        total_samples = len(loader_train)
+        
+        if conf_params["data_params"]["self_supervised"]:
+            batch_pbar_ss = tqdm(
+                loader_train_ss, total=len(loader_train_ss), unit="batch", leave=False
+            )
+            for inputs in batch_pbar_ss:
+                optimizer.zero_grad(set_to_none=True)
+
+                batch_pbar.set_description(f"Acummulated loss (self-supervised): {acc_loss:.4f}")
+                
+                # move to device
+                # target is index of classes
+                inputs = inputs.double().to(device)
+
+                # Run augmentation pipeline every batch
+                inputs, _ = train_aug(inputs, torch.empty_like(inputs))
+                augs = ss_aug(inputs)
+
+                with torch.cuda.amp.autocast(enabled=amp):
+                    outputs_a = model(inputs)
+                    outputs_b = model(augs)
+
+                    loss = ss_loss_fn(outputs_a, outputs_b)
+
+                grad_scaler.scale(loss).backward()
+                grad_scaler.step(optimizer)
+                grad_scaler.update()
+
+                acc_loss += loss.item()
+
+            total_samples += len(loader_train_ss)
+
+        acc_loss /= total_samples
 
         # Tracking training performance
         run.track(acc_loss, name="loss", epoch=epoch, context=dict(subset="train"))
