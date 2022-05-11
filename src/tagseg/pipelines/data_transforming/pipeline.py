@@ -8,7 +8,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         [
             node(
                 cine_to_tagged,
-                ["dataset", "params:batch_size", "params:data_params"],
+                ["dataset", "params:transformation"],
                 "model_input",
                 name="cine_to_tag",
             ),

@@ -1,5 +1,5 @@
 experiment:
-  name: 'DMD Finetuning (New: SCD pretrain)'
+  name: 'PyTorch Lightning try number 1'
 
 data:
   acdc:
@@ -27,5 +27,5 @@ training:
   self_supervised: False
   semi_supervised: False
   ss_model: 
-  pretrain_model: 'data/06_models/model_cine_tag_only_myo_v4.pt'
-  checkpoint: 'data/06_models/model_cine_tag_only_myo_v4_finetuned_dmd_v0.pt'
+  pretrain_model: 
+  checkpoint: 'data/06_models/model_pl_vneg1.pt'

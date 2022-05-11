@@ -1,6 +1,7 @@
 import numpy as np
-import torch
 from scipy import ndimage
+import nibabel as nib
+import torch
 from torch.utils.data import TensorDataset
 
 from .cine2gridtag import cine2gridtag
@@ -113,3 +114,25 @@ class SimulateTags(torch.nn.Module):
             self.__class__.__name__
             + f"(spacing={self.spacing}, contrast={self.contrast})"
         )
+
+
+def load_nii(img_path):
+    """
+    Function to load a 'nii' or 'nii.gz' file, The function returns
+    everyting needed to save another 'nii' or 'nii.gz'
+    in the same dimensional space, i.e. the affine matrix and the header
+
+    Parameters
+    ----------
+
+    img_path: string
+    String with the path of the 'nii' or 'nii.gz' image file name.
+
+    Returns
+    -------
+    Three element, the first is a numpy array of the image values,
+    the second is the affine transformation of the image, and the
+    last one is the header of the image.
+    """
+    nimg = nib.load(img_path)
+    return nimg.get_fdata(), nimg.affine, nimg.header

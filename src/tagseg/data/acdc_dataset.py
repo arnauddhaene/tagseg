@@ -2,13 +2,13 @@ import logging
 from pathlib import Path
 from typing import Tuple
 
-import nibabel as nib
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from .dataset import TagSegDataSet
+from .utils import load_nii
 
 
 class AcdcDataSet(TagSegDataSet):
@@ -47,11 +47,9 @@ class AcdcDataSet(TagSegDataSet):
 
                 # Preprocess labels and images
                 image, label = image.astype(np.float64), label.astype(np.float64)
-                label = self._preprocess_label()(
-                    label
-                )  # Label first as we use the resized version
                 image = image / image.max()  # To [0, 1] range
-                image = self._preprocess_image(0.456, 0.224, label)(image).unsqueeze(0)
+                image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
+                label = self._preprocess_label()(label)
 
                 # Exclude NaNs from dataset
                 if image.isnan().sum().item() > 0 or label.isnan().sum().item() > 0:
@@ -134,25 +132,3 @@ class Patient:
         gt, _, _ = load_nii(mask_path)
 
         return imt.swapaxes(0, 2), gt.swapaxes(0, 2)
-
-
-def load_nii(img_path):
-    """
-    Function to load a 'nii' or 'nii.gz' file, The function returns
-    everyting needed to save another 'nii' or 'nii.gz'
-    in the same dimensional space, i.e. the affine matrix and the header
-
-    Parameters
-    ----------
-
-    img_path: string
-    String with the path of the 'nii' or 'nii.gz' image file name.
-
-    Returns
-    -------
-    Three element, the first is a numpy array of the image values,
-    the second is the affine transformation of the image, and the
-    last one is the header of the image.
-    """
-    nimg = nib.load(img_path)
-    return nimg.get_fdata(), nimg.affine, nimg.header

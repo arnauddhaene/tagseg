@@ -1,4 +1,3 @@
-import torch
 from kedro.extras.datasets.pickle import PickleDataSet
 from torchvision import transforms
 
@@ -23,7 +22,7 @@ class TagSegDataSet(PickleDataSet):
         raise NotImplementedError
 
     def _preprocess_image(
-        self, mu: float, sigma: float, label: torch.Tensor = None
+        self, mu: float, sigma: float
     ) -> transforms.Compose:
         """Preprocess image
 
