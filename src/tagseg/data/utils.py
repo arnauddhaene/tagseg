@@ -1,7 +1,6 @@
 import numpy as np
-from scipy import ndimage
-
 import torch
+from scipy import ndimage
 from torch.utils.data import TensorDataset
 
 from .cine2gridtag import cine2gridtag
@@ -53,15 +52,17 @@ def directional_field(inp: np.ndarray, exclude_bg: bool = True) -> np.ndarray:
         result[:, x > 0] = diff[:, x > 0]
 
         # Cartesian to polar coordinates
-        result = np.stack([
-            (result ** 2).sum(axis=0) ** .5,  # sqrt(x^2 + y^2)
-            np.arctan(result[1] / (result[0] + 1e-8))  # arctan(y/x)
-        ])
+        result = np.stack(
+            [
+                (result ** 2).sum(axis=0) ** 0.5,  # sqrt(x^2 + y^2)
+                np.arctan(result[1] / (result[0] + 1e-8)),  # arctan(y/x)
+            ]
+        )
 
         return result
 
     offset = 1 if exclude_bg else 0
-    
+
     def example_df(ex: np.ndarray):
         return np.array(list(map(channel_df, ex[offset:]))).sum(axis=0)
 

@@ -1,30 +1,35 @@
+import functools
 import logging
 from pathlib import Path
 from typing import Tuple
-import functools
 
 import numpy as np
 import pydicom
-from tqdm import tqdm
 import torch
-from torch.utils.data import TensorDataset
 from skimage.draw import polygon, polygon2mask
+from torch.utils.data import TensorDataset
+from tqdm import tqdm
 
 from .dataset import TagSegDataSet
 
 
 class ScdDataSet(TagSegDataSet):
-
     def _load_except(self, filepath_raw: str) -> TensorDataset:
-        
+
         subfolders = list(Path(filepath_raw).iterdir())
 
-        contour_superfolder = list(filter(lambda s: 'Contours' in s.name, subfolders))[0]
-        contour_folder = list(filter(lambda p: p.is_dir(), contour_superfolder.iterdir()))[0]
+        contour_superfolder = list(filter(lambda s: "Contours" in s.name, subfolders))[
+            0
+        ]
+        contour_folder = list(
+            filter(lambda p: p.is_dir(), contour_superfolder.iterdir())
+        )[0]
 
-        dicom_superfolder = list(filter(lambda s: 'DICOM' in s.name, subfolders))[0]
-        dicom_folder = list(filter(lambda p: p.is_dir(), dicom_superfolder.iterdir()))[0]
-        
+        dicom_superfolder = list(filter(lambda s: "DICOM" in s.name, subfolders))[0]
+        dicom_folder = list(filter(lambda p: p.is_dir(), dicom_superfolder.iterdir()))[
+            0
+        ]
+
         images: torch.Tensor = torch.Tensor()
         labels: torch.Tensor = torch.Tensor()
 
@@ -33,16 +38,19 @@ class ScdDataSet(TagSegDataSet):
         patients = [d for d in contour_folder.iterdir() if d.is_dir()]
 
         for patient in tqdm(patients):
-            
-            if patient.name == 'file-listings':
+
+            if patient.name == "file-listings":
                 continue
 
-            contours = [f for f in (patient / 'contours-manual' / 'IRCCI-expert').iterdir()
-                        if (f.is_file() and f.suffix == '.txt')]
-            
+            contours = [
+                f
+                for f in (patient / "contours-manual" / "IRCCI-expert").iterdir()
+                if (f.is_file() and f.suffix == ".txt")
+            ]
+
             cont_ptr = {}
             for contour in contours:
-                _, _, no, _, _ = contour.stem.split('-')
+                _, _, no, _, _ = contour.stem.split("-")
 
                 no = f"IM-0001-{int(no):04}"
 
@@ -53,13 +61,17 @@ class ScdDataSet(TagSegDataSet):
 
             for no, conts in cont_ptr.items():
                 # choose only inner and outer
-                conts = [cont for cont in conts if ('icontour' in str(cont) or 'ocontour' in str(cont))]
-                
+                conts = [
+                    cont
+                    for cont in conts
+                    if ("icontour" in str(cont) or "ocontour" in str(cont))
+                ]
+
                 # skip annotations that don't include endo- and epi-cardial wall
                 if len(conts) < 2:
                     continue
 
-                image_path = dicom_folder / patient.name / 'DICOM' / (no + '.dcm')
+                image_path = dicom_folder / patient.name / "DICOM" / (no + ".dcm")
                 image = pydicom.dcmread(image_path).pixel_array.astype(np.float64)
 
                 mask_me = functools.partial(self.get_mask, image.shape)
@@ -105,10 +117,10 @@ class ScdDataSet(TagSegDataSet):
 
     @staticmethod
     def get_points(path: Path) -> np.ndarray:
-        with open(path, 'r') as f:
-            lines = f.read().split('\n')
-        
+        with open(path, "r") as f:
+            lines = f.read().split("\n")
+
         # remove last line if empty
-        if lines[-1] == '':
+        if lines[-1] == "":
             lines = lines[:-1]
-        return np.array([x_y.split(' ') for x_y in lines]).astype(np.float64)
+        return np.array([x_y.split(" ") for x_y in lines]).astype(np.float64)

@@ -13,7 +13,7 @@ class ResidualBlock(nn.Module):
             nn.ReLU(inplace=True),
             nn.ReflectionPad2d(1),
             nn.Conv2d(in_features, in_features, 3),
-            nn.InstanceNorm2d(in_features)
+            nn.InstanceNorm2d(in_features),
         ]
 
         self.conv_block = nn.Sequential(*conv_block)
@@ -31,7 +31,7 @@ class Generator(nn.Module):
             nn.ReflectionPad2d(3),
             nn.Conv2d(input_nc, 64, 7),
             nn.InstanceNorm2d(64),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         ]
 
         # Downsampling
@@ -41,9 +41,9 @@ class Generator(nn.Module):
             model += [
                 nn.Conv2d(in_features, out_features, 3, stride=2, padding=1),
                 nn.InstanceNorm2d(out_features),
-                nn.ReLU(inplace=True)
+                nn.ReLU(inplace=True),
             ]
-            
+
             in_features = out_features
             out_features = in_features * 2
 
@@ -55,19 +55,17 @@ class Generator(nn.Module):
         out_features = in_features // 2
         for _ in range(2):
             model += [
-                nn.ConvTranspose2d(in_features, out_features, 3, stride=2, padding=1, output_padding=1),
+                nn.ConvTranspose2d(
+                    in_features, out_features, 3, stride=2, padding=1, output_padding=1
+                ),
                 nn.InstanceNorm2d(out_features),
-                nn.ReLU(inplace=True)
+                nn.ReLU(inplace=True),
             ]
             in_features = out_features
             out_features = in_features // 2
 
         # Output layer
-        model += [
-            nn.ReflectionPad2d(3),
-            nn.Conv2d(64, output_nc, 7),
-            nn.Tanh()
-        ]
+        model += [nn.ReflectionPad2d(3), nn.Conv2d(64, output_nc, 7), nn.Tanh()]
 
         self.model = nn.Sequential(*model)
 
@@ -82,25 +80,25 @@ class Discriminator(nn.Module):
         # A bunch of convolutions one after another
         model = [
             nn.Conv2d(input_nc, 64, 4, stride=2, padding=1),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True),
         ]
 
         model += [
             nn.Conv2d(64, 128, 4, stride=2, padding=1),
             nn.InstanceNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True),
         ]
 
         model += [
             nn.Conv2d(128, 256, 4, stride=2, padding=1),
             nn.InstanceNorm2d(256),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True),
         ]
 
         model += [
             nn.Conv2d(256, 512, 4, padding=1),
             nn.InstanceNorm2d(512),
-            nn.LeakyReLU(0.2, inplace=True)
+            nn.LeakyReLU(0.2, inplace=True),
         ]
 
         # FCN classification layer

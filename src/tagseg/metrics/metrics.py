@@ -218,7 +218,10 @@ class RegionLoss(nn.Module):
 
 
 def shape_loss(
-    input: torch.Tensor, target: torch.Tensor, exclude_bg: bool = False, smooth_k: float = 1e-2
+    input: torch.Tensor,
+    target: torch.Tensor,
+    exclude_bg: bool = False,
+    smooth_k: float = 1e-2,
 ) -> torch.Tensor:
     """Loss based on shape. Objective function to minimize.
     Based on https://ieeexplore.ieee.org/document/9433775
@@ -281,7 +284,9 @@ def shape_loss(
 
             shape_information = (1 - dt) * roi + (dt_n - 1) * (1 - roi)
 
-            sdm = torch.Tensor(1 / (1 + np.exp(-shape_information / smooth_k))).unsqueeze(0)
+            sdm = torch.Tensor(
+                1 / (1 + np.exp(-shape_information / smooth_k))
+            ).unsqueeze(0)
 
             distance_map = torch.cat([distance_map, sdm], axis=0)
 
@@ -357,7 +362,13 @@ def evaluate(
             outputs = dict(logits=model(images)[0])
 
             if track_images:
-                masks = F.softmax(outputs['logits'], dim=1).argmax(dim=1).detach().cpu().numpy()
+                masks = (
+                    F.softmax(outputs["logits"], dim=1)
+                    .argmax(dim=1)
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
                 factor = round(256 / model.n_classes)
                 for mask, target in zip(masks, targets.detach().cpu().numpy()):
                     mask, target = (
@@ -377,7 +388,7 @@ def evaluate(
                         context=dict(subset="val"),
                     )
 
-            dice += dice_score(outputs['logits'], targets)
+            dice += dice_score(outputs["logits"], targets)
             val_loss += loss_fn(outputs, targets).item()
 
     model.train()

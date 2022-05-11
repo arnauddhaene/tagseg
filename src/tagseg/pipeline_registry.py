@@ -5,8 +5,8 @@ from kedro.pipeline import Pipeline
 
 from tagseg.pipelines import data_processing as dp
 from tagseg.pipelines import data_splitting as ds
-from tagseg.pipelines import model_training as mt
 from tagseg.pipelines import data_transforming as dt
+from tagseg.pipelines import model_training as mt
 
 
 def register_pipelines() -> Dict[str, Pipeline]:
@@ -24,5 +24,5 @@ def register_pipelines() -> Dict[str, Pipeline]:
     return {
         "preprocess": preprocess,
         "cine2tag": preprocess + cine_to_tagged,
-        "__default__": preprocess + cine_to_tagged + split + train
+        "__default__": preprocess + cine_to_tagged + split + train,
     }

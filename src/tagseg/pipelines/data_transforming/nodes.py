@@ -1,20 +1,18 @@
 import logging
-from typing import Dict, Any
-from tqdm import tqdm
+from typing import Any, Dict
 
+import torch
 from kedro.config import ConfigLoader
 from kedro.extras.datasets.pickle import PickleDataSet
-import torch
 from torch.autograd import Variable
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import DataLoader, TensorDataset
+from tqdm import tqdm
 
 from tagseg.models.cyclegan import Generator
 
 
 def cine_to_tagged(
-    dataset: TensorDataset,
-    batch_size: int,
-    data_params: Dict[str, Any]
+    dataset: TensorDataset, batch_size: int, data_params: Dict[str, Any]
 ) -> TensorDataset:
     log = logging.getLogger(__name__)
     conf_cat = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
@@ -24,7 +22,7 @@ def cine_to_tagged(
     nc: int = 1  # no. of channels
     generator: torch.nn.Module = Generator(nc, nc)
 
-    saved_model: str = data_params['generator_model']
+    saved_model: str = data_params["generator_model"]
     generator.load_state_dict(torch.load(saved_model))
     generator.to(device)
 
@@ -45,9 +43,12 @@ def cine_to_tagged(
         output_B[span] = 0.5 * generator(batch).data + 1.0
 
     output_dataset = TensorDataset()
-    output_dataset.tensors = (output_B, dataset.tensors[1],)
+    output_dataset.tensors = (
+        output_B,
+        dataset.tensors[1],
+    )
 
-    tagged_dataset = PickleDataSet(filepath=conf_cat['model_input']['filepath'])
+    tagged_dataset = PickleDataSet(filepath=conf_cat["model_input"]["filepath"])
     tagged_dataset.save(output_dataset)
 
     log.info("Images transformed to tagged with CycleGAN and saved to file.")

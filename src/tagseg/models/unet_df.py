@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .unet import Down, Up, DoubleConv, OutConv
+from .unet import DoubleConv, Down, OutConv, Up
 
 
 class UNetDF(nn.Module):
@@ -56,19 +56,19 @@ class UNetDF(nn.Module):
 class SelFuseFeature(nn.Module):
     def __init__(self, in_channels, shift_n=5, n_classes=4, auxseg=False):
         super(SelFuseFeature, self).__init__()
-        
+
         self.shift_n = shift_n
         self.n_classes = n_classes
         self.auxseg = auxseg
         self.fuse_conv = nn.Sequential(
             nn.Conv2d(in_channels * 2, in_channels, kernel_size=1, padding=0),
             nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
         if auxseg:
             self.auxseg_conv = nn.Conv2d(in_channels, self.n_classes, 1)
-        
+
     def forward(self, x, df):
         N, _, H, W = df.shape
         mag = torch.sqrt(torch.sum(df ** 2, dim=1))
@@ -76,21 +76,25 @@ class SelFuseFeature(nn.Module):
         greater_mask = torch.stack([greater_mask, greater_mask], dim=1)
         df[~greater_mask] = 0
 
-        scale = 1.
-        
+        scale = 1.0
+
         grid = torch.stack(torch.meshgrid(torch.arange(H), torch.arange(W)), dim=0)
-        grid = grid.expand(N, -1, -1, -1).to(x.device, dtype=torch.float).requires_grad_()
+        grid = (
+            grid.expand(N, -1, -1, -1).to(x.device, dtype=torch.float).requires_grad_()
+        )
         grid = grid + scale * df
 
         grid = grid.permute(0, 2, 3, 1).transpose(1, 2)
-        grid_ = grid + 0.
+        grid_ = grid + 0.0
         grid[..., 0] = 2 * grid_[..., 0] / (H - 1) - 1
         grid[..., 1] = 2 * grid_[..., 1] / (W - 1) - 1
 
         # features = []
         select_x = x.clone()
         for _ in range(self.shift_n):
-            select_x = F.grid_sample(select_x, grid, mode='bilinear', padding_mode='border')
+            select_x = F.grid_sample(
+                select_x, grid, mode="bilinear", padding_mode="border"
+            )
 
         if self.auxseg:
             auxseg = self.auxseg_conv(x)

@@ -1,16 +1,16 @@
+import functools
 import logging
 from typing import Any, Dict, List
-import functools
 
-from kedro.config import ConfigLoader
 import torch
-from torch import nn
 import torch.nn.functional as F
-from torch.utils.data import TensorDataset, DataLoader
+from kedro.config import ConfigLoader
+from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
 
 from tagseg.data.dmd_dataset import DmdDataSet, DmdTimeDataSet
-from tagseg.models.unet_ss import UNetSS
 from tagseg.data.utils import merge_tensor_datasets
+from tagseg.models.unet_ss import UNetSS
 
 
 def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
@@ -18,13 +18,13 @@ def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
     log = logging.getLogger(__name__)
 
     catalog = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
-    path = catalog['dmd']['filepath']
+    path = catalog["dmd"]["filepath"]
 
     log.info(f"Loading requested dataset from raw files at {path}")
 
     dataset = DmdDataSet(filepath=path).load()
 
-    if params['semi_supervised']:
+    if params["semi_supervised"]:
 
         ss_loader = DataLoader(preprocess_dmd_ss(params), batch_size=16)
 
@@ -48,7 +48,7 @@ def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
 
         images: torch.Tensor = torch.Tensor()
         labels: torch.Tensor = torch.Tensor()
-        
+
         model.eval()
 
         for inps in ss_loader:
@@ -57,10 +57,15 @@ def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
             outs = model(inps)
 
             images = torch.cat((images, inps.cpu()), axis=0)
-            labels = torch.cat((labels, F.softmax(outs['logits'], dim=1).argmax(dim=1).cpu()), axis=0)
+            labels = torch.cat(
+                (labels, F.softmax(outs["logits"], dim=1).argmax(dim=1).cpu()), axis=0
+            )
 
         predicted_dataset = TensorDataset()
-        predicted_dataset.tensors = (images, labels,)
+        predicted_dataset.tensors = (
+            images,
+            labels,
+        )
 
         dataset = merge_tensor_datasets(dataset, predicted_dataset)
 
@@ -72,7 +77,7 @@ def preprocess_dmd_ss(params: Dict[str, Any]) -> TensorDataset:
     log = logging.getLogger(__name__)
 
     catalog = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
-    path = catalog['tdmd']['filepath']
+    path = catalog["tdmd"]["filepath"]
 
     log.info(f"Loading requested dataset from raw files at {path}")
 
@@ -88,15 +93,11 @@ def join_data(
     dataset_acdc: TensorDataset,
     dataset_scd: TensorDataset,
 ):
-    return dict(
-        acdc=dataset_acdc,
-        scd=dataset_scd
-    )
+    return dict(acdc=dataset_acdc, scd=dataset_scd)
 
 
 def merge_data(
-    datasets: Dict[str, TensorDataset],
-    data_params: Dict[str, Any]
+    datasets: Dict[str, TensorDataset], data_params: Dict[str, Any]
 ) -> TensorDataset:
     log = logging.getLogger(__name__)
 
@@ -104,8 +105,8 @@ def merge_data(
 
     for name, data in datasets.items():
         assert name in data_params.keys()
-        if data_params[name]['include']:
+        if data_params[name]["include"]:
             log.info(f"Including dataset {name} of length {len(data)}.")
             dataset.append(data)
-    
+
     return functools.reduce(merge_tensor_datasets, dataset)

@@ -1,17 +1,14 @@
-
-from kedro.extras.datasets.pickle import PickleDataSet
-
 import torch
+from kedro.extras.datasets.pickle import PickleDataSet
 from torchvision import transforms
 
 
 class TagSegDataSet(PickleDataSet):
-
     def __init__(self, *args, **kwargs):
         super(TagSegDataSet, self).__init__(*args, **kwargs)
 
     def _describe(self) -> str:
-        return ""
+        return f"{self.__class__.__name__} in {'processed' if self._exists() else 'raw'} format."
 
     def _load(self, *args, **kwargs):
         if self._exists():

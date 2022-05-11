@@ -1,6 +1,10 @@
 ##########################
 # KEDRO PROJECT
 
+# custom
+CUDA_VISIBLE_DEVICES
+figures/
+
 # ignore all local configuration
 conf/local/**
 !conf/local/.gitkeep

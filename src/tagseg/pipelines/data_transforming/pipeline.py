@@ -10,7 +10,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 cine_to_tagged,
                 ["dataset", "params:batch_size", "params:data_params"],
                 "model_input",
-                name="cine_to_tag"
+                name="cine_to_tag",
             ),
         ]
     )

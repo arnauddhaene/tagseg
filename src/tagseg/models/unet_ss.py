@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from .unet import Down, Up, DoubleConv, OutConv
+from .unet import DoubleConv, Down, OutConv, Up
 
 
 class UNetSS(nn.Module):

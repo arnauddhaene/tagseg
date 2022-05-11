@@ -12,11 +12,12 @@ from .dataset import TagSegDataSet
 
 
 class AcdcDataSet(TagSegDataSet):
-
     def _load_except(self, filepath_raw: str, only_myo: bool) -> TensorDataset:
 
         # Get all patient folders from main raw downloaded ACDC directory
-        patient_paths = [ppath for ppath in Path(filepath_raw).iterdir() if ppath.is_dir()]
+        patient_paths = [
+            ppath for ppath in Path(filepath_raw).iterdir() if ppath.is_dir()
+        ]
 
         # Initialize empty image and label tensors
         images: torch.Tensor = torch.Tensor()

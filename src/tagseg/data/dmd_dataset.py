@@ -133,7 +133,9 @@ class DmdTimeDataSet(AbstractDataSet):
                         video = slic.image.astype(np.float64)
                         image = video[0]
 
-                        video = self._preprocess_video()(torch.Tensor(video)).unsqueeze(0)
+                        video = self._preprocess_video()(torch.Tensor(video)).unsqueeze(
+                            0
+                        )
 
                         # Preprocess
                         image = image / image.max()
