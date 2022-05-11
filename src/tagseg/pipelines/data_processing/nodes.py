@@ -1,86 +1,16 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
+import functools
 
 from kedro.config import ConfigLoader
-from kedro.extras.datasets.pickle import PickleDataSet
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
-from tagseg.data.acdc_dataset import AcdcDataSet
-from tagseg.data.scd_dataset import ScdDataSet
 from tagseg.data.dmd_dataset import DmdDataSet, DmdTimeDataSet
 from tagseg.models.unet_ss import UNetSS
 from tagseg.data.utils import merge_tensor_datasets
-
-
-def preprocess_acdc(params: Dict[str, Any]) -> TensorDataset:
-
-    log = logging.getLogger(__name__)
-
-    tagged, only_myo = params["tagged"], params["only_myo"]
-    conf_cat = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
-
-    ds_name: str = "acdc_data"
-    ds_name += "_tagged" if tagged else "_cine"
-    ds_name += "_only_myo" if only_myo else ""
-
-    dataset = PickleDataSet(filepath=conf_cat[ds_name]["filepath"])
-
-    if dataset.exists():
-        log.info(
-            f"Requested dataset exists, loading from {conf_cat[ds_name]['filepath']}"
-        )
-        return dataset.load()
-    else:
-        log.info(
-            f"Requested dataset not found, loading it from raw files at \
-                {conf_cat['raw_acdc_data']['filepath']}"
-        )
-        # Specific image preprocessing occurs within AcdcDataSet loading
-        acdc = AcdcDataSet(
-            filepath=conf_cat["raw_acdc_data"]["filepath"],
-            tagged=tagged,
-            only_myo=only_myo,
-        )
-        # Save dataset for next time
-        dataset.save(acdc.load())
-        log.info("Requested dataset saved to file.")
-        return dataset.load()
-
-
-def preprocess_scd(params: Dict[str, Any]) -> TensorDataset:
-
-    log = logging.getLogger(__name__)
-
-    tagged = params["tagged"]
-    conf_cat = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
-
-    ds_name: str = "scd_data"
-    ds_name += "_tagged" if tagged else "_cine"
-
-    dataset = PickleDataSet(filepath=conf_cat[ds_name]["filepath"])
-
-    if dataset.exists():
-        log.info(
-            f"Requested dataset exists, loading from {conf_cat[ds_name]['filepath']}"
-        )
-        return dataset.load()
-    else:
-        log.info(
-            f"Requested dataset not found, loading it from raw files at \
-                {conf_cat['raw_scd_data']['filepath']}"
-        )
-        # Specific image preprocessing occurs within AcdcDataSet loading
-        scd = ScdDataSet(
-            filepath=conf_cat["raw_scd_data"]["filepath"],
-            tagged=tagged,
-        )
-        # Save dataset for next time
-        dataset.save(scd.load())
-        log.info("Requested dataset saved to file.")
-        return dataset.load()
 
 
 def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
@@ -88,7 +18,7 @@ def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
     log = logging.getLogger(__name__)
 
     catalog = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
-    path = catalog['dmd_data']['filepath']
+    path = catalog['dmd']['filepath']
 
     log.info(f"Loading requested dataset from raw files at {path}")
 
@@ -100,7 +30,7 @@ def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
 
         model = UNetSS(n_channels=1, n_classes=2, bilinear=True).double()
 
-        pretrained_path = params["base_model"]
+        pretrained_path = params["pretrain_model"]
         if pretrained_path is not None:
             # Load old saved version of the model as a state dictionary
             saved_model_sd = torch.load(pretrained_path)
@@ -142,7 +72,7 @@ def preprocess_dmd_ss(params: Dict[str, Any]) -> TensorDataset:
     log = logging.getLogger(__name__)
 
     catalog = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
-    path = catalog['dmd_time_data']['filepath']
+    path = catalog['tdmd']['filepath']
 
     log.info(f"Loading requested dataset from raw files at {path}")
 
@@ -156,11 +86,26 @@ def preprocess_dmd_ss(params: Dict[str, Any]) -> TensorDataset:
 
 def join_data(
     dataset_acdc: TensorDataset,
-    dataset_dmd: TensorDataset,
     dataset_scd: TensorDataset,
 ):
     return dict(
         acdc=dataset_acdc,
-        dmd=dataset_dmd,
         scd=dataset_scd
     )
+
+
+def merge_data(
+    datasets: Dict[str, TensorDataset],
+    data_params: Dict[str, Any]
+) -> TensorDataset:
+    log = logging.getLogger(__name__)
+
+    dataset: List[TensorDataset] = []
+
+    for name, data in datasets.items():
+        assert name in data_params.keys()
+        if data_params[name]['include']:
+            log.info(f"Including dataset {name} of length {len(data)}.")
+            dataset.append(data)
+    
+    return functools.reduce(merge_tensor_datasets, dataset)

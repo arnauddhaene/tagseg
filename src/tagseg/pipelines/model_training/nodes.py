@@ -56,7 +56,7 @@ def train_model(
 
     log = logging.getLogger(__name__)
     conf_params = ConfigLoader("conf/base").get("parameters*", "parameters*/**")
-    if conf_params["data_params"]["only_myo"]:
+    if conf_params["data_params"]["acdc"]["only_myo"]:
         index_to_class = dict(zip(range(2), ["BG", "MYO"]))
     else:
         index_to_class = dict(zip(range(4), ["BG", "LV", "MYO", "RV"]))

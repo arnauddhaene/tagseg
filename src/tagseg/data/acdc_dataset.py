@@ -1,27 +1,22 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Tuple
 
 import nibabel as nib
 import numpy as np
 import torch
-from kedro.io import AbstractDataSet
 from torch.utils.data import TensorDataset
-from torchvision import transforms
 from tqdm import tqdm
 
-from .utils import SimulateTags
+from .dataset import TagSegDataSet
 
 
-class AcdcDataSet(AbstractDataSet):
-    def __init__(self, filepath: str, tagged: bool = True, only_myo: bool = False):
-        self._filepath = Path(filepath)
-        self._tagged = tagged
-        self._only_myo = only_myo
+class AcdcDataSet(TagSegDataSet):
 
-    def _load(self) -> TensorDataset:
+    def _load_except(self, filepath_raw: str, only_myo: bool) -> TensorDataset:
+
         # Get all patient folders from main raw downloaded ACDC directory
-        patient_paths = [ppath for ppath in self._filepath.iterdir() if ppath.is_dir()]
+        patient_paths = [ppath for ppath in Path(filepath_raw).iterdir() if ppath.is_dir()]
 
         # Initialize empty image and label tensors
         images: torch.Tensor = torch.Tensor()
@@ -63,13 +58,13 @@ class AcdcDataSet(AbstractDataSet):
                     continue
 
                 # Throw out inconsistent masks
-                _classes = label.unique().numpy()
-                if len(_classes) > 4 or not set(_classes).issubset(accepted_classes):
+                classes = label.unique().numpy()
+                if len(classes) > 4 or not set(classes).issubset(accepted_classes):
                     skip_label += 1
                     continue
 
                 # Modify label is only looking at LV myocardium
-                if self._only_myo:
+                if only_myo:
                     label = label == 2
 
                 images = torch.cat((images, image), axis=0)
@@ -86,61 +81,6 @@ class AcdcDataSet(AbstractDataSet):
         )
 
         return dataset
-
-    def _save(self, dataset: TensorDataset) -> None:
-        pass
-
-    def _exists(self) -> bool:
-        return Path(self._filepath.as_posix()).exists()
-
-    def _describe(self) -> Dict[str, Any]:
-        return dict(tagged=self._tagged, only_myo=self._only_myo)
-
-    def _preprocess_image(
-        self, mu: float, sigma: float, label: torch.Tensor = None
-    ) -> transforms.Compose:
-        """Preprocess image
-
-        Args:
-            mu (float): average for normalization layer
-            sigma (float): standard deviation for normalization layer
-            label (Tensor, ndarray, optional): ROI labels for simulatetags contrast curve
-
-        Returns:
-            transforms.Compose: transformation callback function
-        """
-        if self._tagged:
-            return transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Resize((256, 256)),
-                    SimulateTags(label=label),
-                    transforms.Normalize(mean=mu, std=sigma),
-                ]
-            )
-        else:
-            return transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=mu, std=sigma),
-                    transforms.Resize((256, 256)),
-                ]
-            )
-
-    def _preprocess_label(self) -> transforms.Compose:
-        """Preprocess mask
-
-        Returns:
-            transforms.Compose: transformation callback function
-        """
-        return transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Resize(
-                    (256, 256), interpolation=transforms.InterpolationMode.NEAREST
-                ),
-            ]
-        )
 
 
 class Patient:

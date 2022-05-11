@@ -1,26 +1,31 @@
-experiment_name: 'ACDC + SCD Pretraining (New: SCD)'
+experiment:
+  name: 'DMD Finetuning (New: SCD pretrain)'
 
-data_params:
+data:
   acdc:
     include: True
-    tagged: True
     only_myo: True
   dmd:
     include: False
   scd:
     include: True
-    tagged: True
-  self_supervised: False
-  semi_supervised: False
-  base_model: 
+  mnm:
+    include: True
+    only_myo: True
+  train_val_split: .75
+  batch_size: 8
 
-train_val_split: .75
-batch_size: 8
+transformation:
+  generator_model: data/06_models/netG_A2B.pth
+  batch_size: 8
 
-pretrained_model: 
-trained_model: 'data/06_models/model_cine_tag_only_myo_v4.pt'
-train_params:
+training:
   learning_rate: .001
   weight_decay: .00001
   momentum: .9
   epochs: 75
+  self_supervised: False
+  semi_supervised: False
+  ss_model: 
+  pretrain_model: 'data/06_models/model_cine_tag_only_myo_v4.pt'
+  checkpoint: 'data/06_models/model_cine_tag_only_myo_v4_finetuned_dmd_v0.pt'

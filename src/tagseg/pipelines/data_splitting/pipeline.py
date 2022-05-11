@@ -13,7 +13,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         [
             node(
                 split_data,
-                ["datasets", "params:train_val_split", "params:batch_size", "params:data_params"],
+                ["model_input", "params:train_val_split", "params:batch_size", "params:data_params"],
                 dict(loader_train="loader_train", loader_val="loader_val"),
             ),
             node(

@@ -218,7 +218,7 @@ class RegionLoss(nn.Module):
 
 
 def shape_loss(
-    input: torch.Tensor, target: torch.Tensor, exclude_bg: bool = False
+    input: torch.Tensor, target: torch.Tensor, exclude_bg: bool = False, smooth_k: float = 1e-2
 ) -> torch.Tensor:
     """Loss based on shape. Objective function to minimize.
     Based on https://ieeexplore.ieee.org/document/9433775
@@ -281,7 +281,7 @@ def shape_loss(
 
             shape_information = (1 - dt) * roi + (dt_n - 1) * (1 - roi)
 
-            sdm = torch.Tensor(1 / (1 + np.exp(-shape_information / 10.0))).unsqueeze(0)
+            sdm = torch.Tensor(1 / (1 + np.exp(-shape_information / smooth_k))).unsqueeze(0)
 
             distance_map = torch.cat([distance_map, sdm], axis=0)
 
