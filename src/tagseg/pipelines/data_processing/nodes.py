@@ -30,7 +30,7 @@ def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
 
         model = UNetSS(n_channels=1, n_classes=2, bilinear=True).double()
 
-        pretrained_path = params["pretrain_model"]
+        pretrained_path = params["ss_model"]
         if pretrained_path is not None:
             # Load old saved version of the model as a state dictionary
             saved_model_sd = torch.load(pretrained_path)

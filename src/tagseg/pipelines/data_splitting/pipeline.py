@@ -15,15 +15,14 @@ def create_pipeline(**kwargs) -> Pipeline:
                 split_data,
                 [
                     "model_input",
-                    "params:train_val_split",
-                    "params:batch_size",
-                    "params:data_params",
+                    "params:data:train_val_split",
+                    "params:data:batch_size",
                 ],
                 dict(loader_train="loader_train", loader_val="loader_val"),
             ),
             node(
                 fetch_ss_data,
-                ["dataset_dmd_ss", "params:batch_size"],
+                ["dataset_dmd_ss", "params:data:batch_size"],
                 "loader_train_ss",
             ),
         ]

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset, random_split
@@ -9,7 +9,6 @@ def split_data(
     dataset: TensorDataset,
     train_val_split: float,
     batch_size: int,
-    data_params: Dict[str, Any],
 ) -> Dict[str, DataLoader]:
     log = logging.getLogger(__name__)
 

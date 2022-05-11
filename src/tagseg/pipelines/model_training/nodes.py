@@ -15,20 +15,17 @@ from tagseg.metrics.metrics import DiceLoss, ShapeLoss, dice_score, evaluate
 # from tagseg.models.unet_ss import UNetSS
 
 
-def load_model(data_params: Dict[str, Any]) -> Dict[str, Any]:
+def load_model(training_params: Dict[str, Any]) -> Dict[str, Any]:
 
     log = logging.getLogger(__name__)
-    conf_params = ConfigLoader("conf/base").get("parameters*", "parameters*/**")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # only_myo = data_params["only_myo"]
-    # model = UNetSS(n_channels=1, n_classes=(2 if only_myo else 4), bilinear=True).double()
     model = nets.SegResNetVAE(
         in_channels=1, out_channels=2, input_image_size=(256, 256), spatial_dims=2
     ).double()
 
-    pretrained_path = conf_params["pretrained_model"]
+    pretrained_path = training_params["pretrain_model"]
     if pretrained_path is not None:
         # Load old saved version of the model as a state dictionary
         saved_model_sd = torch.load(pretrained_path)
@@ -50,16 +47,14 @@ def train_model(
     loader_train_ss: DataLoader,
     loader_val: DataLoader,
     device: torch.device,
-    train_params: Dict[str, Any],
-    experiment_name: str,
 ) -> Dict[str, nn.Module]:
 
     log = logging.getLogger(__name__)
     conf_params = ConfigLoader("conf/base").get("parameters*", "parameters*/**")
-    if conf_params["data_params"]["acdc"]["only_myo"]:
-        index_to_class = dict(zip(range(2), ["BG", "MYO"]))
-    else:
-        index_to_class = dict(zip(range(4), ["BG", "LV", "MYO", "RV"]))
+
+    index_to_class = dict(zip(range(2), ["BG", "MYO"]))
+
+    experiment_name = conf_params["experiment"]["name"]
 
     run = aim.Run(experiment=experiment_name)
     run["hparams"] = {**conf_params}
@@ -113,10 +108,10 @@ def train_model(
             torch.ones(conf_params["batch_size"]).to(device),
         )
 
-    learning_rate: float = train_params["learning_rate"]
-    weight_decay: float = train_params["weight_decay"]
+    learning_rate: float = conf_params["training"]["learning_rate"]
+    weight_decay: float = conf_params["training"]["weight_decay"]
     # momentum: float = train_params["momentum"]
-    epochs: int = train_params["epochs"]
+    epochs: int = conf_params["training"]["epochs"]
 
     optimizer = torch.optim.Adam(
         model.parameters(),
@@ -178,7 +173,7 @@ def train_model(
 
         total_samples = len(loader_train)
 
-        if conf_params["data_params"]["self_supervised"]:
+        if conf_params["training"]["self_supervised"]:
             batch_pbar_ss = tqdm(
                 loader_train_ss, total=len(loader_train_ss), unit="batch", leave=False
             )
