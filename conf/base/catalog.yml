@@ -29,6 +29,25 @@ scd_test:
   load_args:
     filepath_raw: data/01_raw/sunnybrook/testing
 
+mnm_train:
+  type: tagseg.data.mnm_dataset.MnmDataSet
+  filepath: data/03_primary/mnm_train.pt
+  load_args:
+    filepath_raw: data/01_raw/OpenDataset/Training/Labeled
+
+mnm_val:
+  type: tagseg.data.mnm_dataset.MnmDataSet
+  filepath: data/03_primary/mnm_val.pt
+  load_args:
+    filepath_raw: data/01_raw/OpenDataset/Validation/
+
+mnm_test:
+  type: tagseg.data.mnm_dataset.MnmDataSet
+  filepath: data/03_primary/mnm_test.pt
+  load_args:
+    filepath_raw: data/01_raw/OpenDataset/Testing/
+
+
 dmd:
   type: tagseg.data.dmd_dataset.DmdDataSet
   filepath: data/01_raw/dmd_roi
