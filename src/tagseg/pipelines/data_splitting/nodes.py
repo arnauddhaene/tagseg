@@ -13,6 +13,7 @@ from monai.transforms import (
     RandGaussianSmoothd,
     RandGaussianSharpend,
     RandKSpaceSpikeNoised,
+    Resized,
     EnsureTyped
 )
 from monai.data import list_data_collate, CacheDataset
@@ -49,11 +50,12 @@ def split_data(
             HistogramNormalized(keys=["image"]),
             RandSpatialCropSamplesd(
                 keys=["image", "label"],
-                roi_size=(128, 128),
+                roi_size=(192, 192),
                 num_samples=4,
                 random_center=True,
                 random_size=False,
             ),
+            Resized(keys=["image", "label"], spatial_size=(256, 256)),
             RandAxisFlipd(keys=["image", "label"], prob=probability),
             RandAffined(keys=["image", "label"], prob=probability),
             Rand2DElasticd(
@@ -84,8 +86,10 @@ def split_data(
     val_ds = CacheDataset(data=val_set, transform=val_transforms, cache_rate=1.0)
 
     loader_train = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True, collate_fn=list_data_collate)
+        train_ds, batch_size=batch_size, shuffle=True, collate_fn=list_data_collate,
+        num_workers=64
+    )
 
-    loader_val = DataLoader(val_ds, batch_size=1)
+    loader_val = DataLoader(val_ds, batch_size=batch_size, num_workers=64)
 
     return dict(loader_train=loader_train, loader_val=loader_val)

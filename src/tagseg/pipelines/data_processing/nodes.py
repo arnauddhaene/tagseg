@@ -92,8 +92,9 @@ def preprocess_dmd_ss(params: Dict[str, Any]) -> TensorDataset:
 def join_data(
     dataset_acdc: TensorDataset,
     dataset_scd: TensorDataset,
+    dataset_mnm: TensorDataset
 ):
-    return dict(acdc=dataset_acdc, scd=dataset_scd)
+    return dict(acdc=dataset_acdc, scd=dataset_scd, mnm=dataset_mnm)
 
 
 def merge_data(

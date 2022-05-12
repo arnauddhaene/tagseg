@@ -24,7 +24,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "dataset_dmd_ss",
                 name="preprocess_ss",
             ),
-            node(join_data, ["acdc_train", "scd_train"], "datasets", name="join_data"),
+            node(join_data, ["acdc_train", "scd_train", "mnm_train"], "datasets", name="join_data"),
             node(
                 merge_data,
                 ["datasets", "params:data"],

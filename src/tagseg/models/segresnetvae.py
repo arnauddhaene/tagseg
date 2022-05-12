@@ -16,7 +16,7 @@ from ..metrics.shape import ShapeDistLoss
 
 class Net(pl.LightningModule):
 
-    def __init__(self, hparams: Dict[str, Any]) -> None:
+    def __init__(self, hparams: Dict[str, Any], load_model: str = None) -> None:
         super(Net, self).__init__()
         self.save_hyperparameters()
 
@@ -26,9 +26,13 @@ class Net(pl.LightningModule):
         self._model = nets.SegResNetVAE(
             in_channels=1,
             out_channels=2,
-            input_image_size=(128, 128),
+            input_image_size=(256, 256),
             spatial_dims=2,
         )
+
+        if load_model is not None:
+            # Load checkpointed version of the model
+            self._model.load_state_dict(torch.load(load_model))
 
         self.criterion = nn.CrossEntropyLoss()
         self.dice_criterion = DiceLoss(include_background=False, to_onehot_y=True, softmax=True)
@@ -75,7 +79,7 @@ class Net(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         images, labels = batch['image'], batch['label'].long()
 
-        roi_size = (64, 64)
+        roi_size = (128, 128)
         sw_batch_size = 4
         outputs = sliding_window_inference(
             images, roi_size, sw_batch_size, self.forward)
@@ -117,5 +121,3 @@ class Net(pl.LightningModule):
             f"dice {mean_val_dice:.4f} | "
             f"hd {mean_hd:.4f}"
         )
-
-    

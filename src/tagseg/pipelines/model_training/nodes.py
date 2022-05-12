@@ -13,11 +13,14 @@ from tagseg.models.segresnetvae import Net
 
 def load_model(training_params: Dict[str, Any]) -> Dict[str, Any]:
 
-    return Net(dict(
-        learning_rate=training_params['learning_rate'],
-        weight_decay=training_params['weight_decay'],
-        momentum=training_params['momentum']
-    ))
+    return Net(
+        load_model=training_params['pretrain_model'],
+        hparams=dict(
+            learning_rate=training_params['learning_rate'],
+            weight_decay=training_params['weight_decay'],
+            momentum=training_params['momentum']
+        )
+    )
 
 
 def train_model(
@@ -49,7 +52,7 @@ def train_model(
 
     trainer.fit(model, loader_train, loader_val)
 
-    return model
+    return model._model
 
 
 def save_model(model: nn.Module, training_params) -> None:

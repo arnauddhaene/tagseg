@@ -1,5 +1,5 @@
 experiment:
-  name: 'PyTorch Lightning try number 1'
+  name: 'Training cine->GAN with SegResNetVAE'
 
 data:
   acdc:
@@ -13,19 +13,19 @@ data:
     include: True
     only_myo: True
   train_val_split: .75
-  batch_size: 8
+  batch_size: 16
 
 transformation:
   generator_model: data/06_models/netG_A2B.pth
-  batch_size: 8
+  batch_size: 16
 
 training:
   learning_rate: .001
   weight_decay: .00001
   momentum: .9
-  epochs: 75
+  epochs: 100
   self_supervised: False
   semi_supervised: False
   ss_model: 
-  pretrain_model: 
-  checkpoint: 'data/06_models/model_pl_vneg1.pt'
+  pretrain_model: data/06_models/model_cine_tag_only_myo_v4.pt
+  checkpoint: 'data/06_models/model_cycleGAN_cine2tag_v1.pt'

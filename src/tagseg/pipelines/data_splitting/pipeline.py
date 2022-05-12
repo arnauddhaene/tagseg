@@ -10,7 +10,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 split_data,
                 [
                     "model_input",
-                    "params:data",
+                    "params:data"
                 ],
                 dict(loader_train="loader_train", loader_val="loader_val"),
             ),
