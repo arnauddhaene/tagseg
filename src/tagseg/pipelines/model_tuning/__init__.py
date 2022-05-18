@@ -1,5 +1,5 @@
 """
-This is a boilerplate pipeline 'data_transforming'
+This is a boilerplate pipeline 'model_tuning'
 generated using Kedro 0.17.7
 """
 

@@ -1,4 +1,4 @@
-# Pipeline data_transforming
+# Pipeline model_tuning
 
 > *Note:* This is a `README.md` boilerplate generated using `Kedro 0.17.7`.
 

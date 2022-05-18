@@ -3,7 +3,10 @@
 
 # custom
 CUDA_VISIBLE_DEVICES
+.lr_find*
+*.npz
 figures/
+notebooks/data/
 
 # ignore all local configuration
 conf/local/**

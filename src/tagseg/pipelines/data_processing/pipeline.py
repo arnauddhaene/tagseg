@@ -5,7 +5,13 @@ generated using Kedro 0.17.7
 
 from kedro.pipeline import Pipeline, node, pipeline
 
-from .nodes import join_data, merge_data, preprocess_dmd, preprocess_dmd_ss
+from .nodes import (
+    join_data,
+    merge_data,
+    preprocess_dmd,
+    preprocess_dmd_ss,
+    prepare_input
+)
 
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -29,6 +35,12 @@ def create_pipeline(**kwargs) -> Pipeline:
                 merge_data,
                 ["datasets", "params:data"],
                 "dataset",
+            ),
+            node(
+                prepare_input,
+                ["dataset", "params:transformation"],
+                "model_input",
+                name="prepare_input",
             ),
         ]
     )

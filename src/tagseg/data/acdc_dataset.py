@@ -25,6 +25,7 @@ class AcdcDataSet(TagSegDataSet):
 
         skip_label: int = 0
         skip_nan: int = 0
+        skip_unlabeled: int = 0
 
         accepted_classes: set = set([0.0, 1.0, 2.0, 3.0])
 
@@ -66,12 +67,17 @@ class AcdcDataSet(TagSegDataSet):
                 if only_myo:
                     label = label == 2
 
+                if torch.count_nonzero(label).item() == 0:
+                    skip_unlabeled += 1
+                    continue
+
                 images = torch.cat((images, image), axis=0)
                 labels = torch.cat((labels, label), axis=0)
 
         log = logging.getLogger(__name__)
         log.info(f"Skipped {skip_label} image(s) due to incoherent label")
         log.info(f"Skipped {skip_nan} image(s) due to presence of NaN")
+        log.info(f"Skipped {skip_unlabeled} image(s) due to absence of label")
 
         dataset = TensorDataset()
         dataset.tensors = (

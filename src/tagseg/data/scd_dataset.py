@@ -18,22 +18,24 @@ class ScdDataSet(TagSegDataSet):
 
         subfolders = list(Path(filepath_raw).iterdir())
 
-        contour_superfolder = list(filter(lambda s: "Contours" in s.name, subfolders))[
-            0
-        ]
+        contour_superfolder = list(
+            filter(lambda s: "Contours" in s.name, subfolders)
+        )[0]
+
         contour_folder = list(
             filter(lambda p: p.is_dir(), contour_superfolder.iterdir())
         )[0]
 
         dicom_superfolder = list(filter(lambda s: "DICOM" in s.name, subfolders))[0]
-        dicom_folder = list(filter(lambda p: p.is_dir(), dicom_superfolder.iterdir()))[
-            0
-        ]
+        dicom_folder = list(
+            filter(lambda p: p.is_dir(), dicom_superfolder.iterdir())
+        )[0]
 
         images: torch.Tensor = torch.Tensor()
         labels: torch.Tensor = torch.Tensor()
 
         skip_nan: int = 0
+        skip_unlabeled: int = 0
 
         patients = [d for d in contour_folder.iterdir() if d.is_dir()]
 
@@ -85,11 +87,15 @@ class ScdDataSet(TagSegDataSet):
                     label
                 )  # Label first as we use the resized version
                 image = image / image.max()  # To [0, 1] range
-                image = self._preprocess_image(0.456, 0.224, label)(image).unsqueeze(0)
+                image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
 
                 # Exclude NaNs from dataset
                 if image.isnan().sum().item() > 0 or label.isnan().sum().item() > 0:
                     skip_nan += 1
+                    continue
+
+                if torch.count_nonzero(label).item() == 0:
+                    skip_unlabeled += 1
                     continue
 
                 images = torch.cat((images, image), axis=0)
@@ -97,6 +103,7 @@ class ScdDataSet(TagSegDataSet):
 
         log = logging.getLogger(__name__)
         log.info(f"Skipped {skip_nan} image(s) due to presence of NaN")
+        log.info(f"Skipped {skip_unlabeled} image(s) due to absence of label")
 
         dataset = TensorDataset()
         dataset.tensors = (

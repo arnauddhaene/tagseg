@@ -1,5 +1,8 @@
-from kedro.extras.datasets.pickle import PickleDataSet
+import logging
+
 from torchvision import transforms
+
+from kedro.extras.datasets.pickle import PickleDataSet
 
 
 class TagSegDataSet(PickleDataSet):
@@ -10,7 +13,10 @@ class TagSegDataSet(PickleDataSet):
         return f"{self.__class__.__name__} in {'processed' if self._exists() else 'raw'} format."
 
     def _load(self, *args, **kwargs):
+        log = logging.getLogger(__name__)
+
         if self._exists():
+            log.info(f'Dataset exists and will be loaded from {self._filepath}')
             self._load_args = {}
             return super(TagSegDataSet, self)._load()
         else:

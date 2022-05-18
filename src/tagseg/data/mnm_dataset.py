@@ -72,6 +72,10 @@ class MnmDataSet(TagSegDataSet):
                 if only_myo:
                     label = label == 2
 
+                if torch.count_nonzero(label) == 0:
+                    skip_unlabeled += 1
+                    continue
+
                 images = torch.cat((images, image), axis=0)
                 labels = torch.cat((labels, label), axis=0)
 
