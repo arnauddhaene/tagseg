@@ -15,8 +15,10 @@ def load_model(training_params: Dict[str, Any]) -> Dict[str, Any]:
 
     return Net(
         load_model=training_params['pretrain_model'],
+        model_type=training_params['model_type'],
         learning_rate=training_params['learning_rate'],
         weight_decay=training_params['weight_decay'],
+        gamma=training_params['gamma'],
     )
 
 
@@ -43,9 +45,10 @@ def train_model(
 
     trainer = Trainer(
         epochs=epochs,
-        device=device,
         logger=logger,
-        amp=True
+        checkpoint_path=params["training"]["checkpoint"],
+        device=device,
+        amp=True,
     )
 
     trainer.fit(model, loader_train, loader_val)

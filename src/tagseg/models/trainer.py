@@ -1,3 +1,4 @@
+from pathlib import Path
 from tqdm import tqdm
 from typing import Union, Dict
 
@@ -16,11 +17,12 @@ class Trainer():
         self,
         epochs: bool,
         logger: aim.Run,
+        checkpoint_path: str,
         device: torch.device = 'cpu',
         amp: bool = True,
     ) -> None:
         self.__dict__.update(dict(
-            epochs=epochs, logger=logger, amp=amp, device=device
+            epochs=epochs, logger=logger, amp=amp, device=device, checkpoint_path=checkpoint_path
         ))
 
     @staticmethod
@@ -45,7 +47,7 @@ class Trainer():
 
         return storage
 
-    def training_epoch(self, model, train_dataloader, optimizer):
+    def training_epoch(self, model, train_dataloader, grad_scaler, optimizer):
         model.train()
         torch.set_grad_enabled(True)
 
@@ -65,11 +67,15 @@ class Trainer():
             # clear gradients
             optimizer.zero_grad()
 
-            # backward
-            out['loss'].backward()
+            grad_scaler.scale(out['loss']).backward()
+            grad_scaler.step(optimizer)
+            grad_scaler.update()
 
-            # update parameters
-            optimizer.step()
+            # # backward
+            # out['loss'].backward()
+
+            # # update parameters
+            # optimizer.step()
 
             # update training metrics
             outs = self.update_list_dict(out, outs)
@@ -111,28 +117,38 @@ class Trainer():
             model._model.to(self.device)
             model._model = nn.DataParallel(model._model)
 
-        optimizer, scheduler = model.configure_optimizers()
+        checkpoint_path = Path(self.checkpoint_path)
+        checkpoint_path = checkpoint_path.parent / checkpoint_path.stem
+        Path.mkdir(checkpoint_path)
+
+        optimizer, scheduler, grad_scaler = model.configure_optimizers()
 
         pbar = tqdm(range(self.epochs), unit="epoch", leave=False)
         pbar.set_description(f"Epoch {0:03}")
 
         for epoch in pbar:
 
-            train_stats = self.training_epoch(model, train_dataloader, optimizer)
+            train_stats = self.training_epoch(model, train_dataloader, grad_scaler, optimizer)
             epoch_loss = train_stats['loss']
             epoch_dice = train_stats['dice']
-            self.logger.track(epoch_loss, name='loss', context=dict(subset="train"))
-            self.logger.track(epoch_dice, name='dice', context=dict(subset="train"))
+            self.logger.track(epoch_loss, name='loss', epoch=epoch, context=dict(subset="train"))
+            self.logger.track(epoch_dice, name='dice', epoch=epoch, context=dict(subset="train"))
 
             val_stats = self.validate(model, val_dataloader)
             val_epoch_loss = val_stats['loss']
             val_epoch_dice = val_stats['dice']
-            self.logger.track(val_epoch_loss, name='loss', context=dict(subset="val"))
-            self.logger.track(val_epoch_dice, name='dice', context=dict(subset="val"))
+            self.logger.track(val_epoch_loss, name='loss', epoch=epoch, context=dict(subset="val"))
+            self.logger.track(val_epoch_dice, name='dice', epoch=epoch, context=dict(subset="val"))
 
             scheduler.step(val_epoch_dice)
 
+            current_lr = optimizer.param_groups[0]['lr']
+            self.logger.track(current_lr, name='learning_rate', epoch=epoch, context=dict(subset="train"))
+
             status = f"Epoch {epoch:03} \t Loss {epoch_loss:.4f} \t Dice {epoch_dice:.4f}"
             status += f"\t Val. Loss {val_epoch_loss:.4f} \t Val. Dice {val_epoch_dice:.4f}"
+            
+            if (epoch + 1) % 5 == 0:
+                model.checkpoint(checkpoint_path / f'E{epoch + 1:03}.pt')
 
             pbar.set_description(status)

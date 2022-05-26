@@ -38,41 +38,44 @@ class AcdcDataSet(TagSegDataSet):
             patient = Patient(ppath)
             assert len(patient.images) == len(patient.masks)
 
-            # Loop through each patient's list of images (around 10 per patient)
-            image_pbar = tqdm(
-                zip(patient.images, patient.masks),
-                leave=False,
-                total=len(patient.images),
-            )
-            for image, label in image_pbar:
+            # Loop through each patient's slices (usually 2 per patient)
+            for slice_images, slice_labels in zip(patient.images, patient.masks):
 
-                # Preprocess labels and images
-                image, label = image.astype(np.float64), label.astype(np.float64)
-                image = image / image.max()  # To [0, 1] range
-                image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
-                label = self._preprocess_label()(label)
+                # Loop through each slice's list of images (around 10 per patient)
+                image_pbar = tqdm(
+                    zip(slice_images, slice_labels),
+                    leave=False,
+                    total=len(slice_images),
+                )
+                for image, label in image_pbar:
 
-                # Exclude NaNs from dataset
-                if image.isnan().sum().item() > 0 or label.isnan().sum().item() > 0:
-                    skip_nan += 1
-                    continue
+                    # Preprocess labels and images
+                    image, label = image.astype(np.float64), label.astype(np.float64)
+                    image = image / image.max()  # To [0, 1] range
+                    image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
+                    label = self._preprocess_label()(label)
 
-                # Throw out inconsistent masks
-                classes = label.unique().numpy()
-                if len(classes) > 4 or not set(classes).issubset(accepted_classes):
-                    skip_label += 1
-                    continue
+                    # Exclude NaNs from dataset
+                    if image.isnan().sum().item() > 0 or label.isnan().sum().item() > 0:
+                        skip_nan += 1
+                        continue
 
-                # Modify label is only looking at LV myocardium
-                if only_myo:
-                    label = label == 2
+                    # Throw out inconsistent masks
+                    classes = label.unique().numpy()
+                    if len(classes) > 4 or not set(classes).issubset(accepted_classes):
+                        skip_label += 1
+                        continue
 
-                if torch.count_nonzero(label).item() == 0:
-                    skip_unlabeled += 1
-                    continue
+                    # Modify label is only looking at LV myocardium
+                    if only_myo:
+                        label = label == 2
 
-                images = torch.cat((images, image), axis=0)
-                labels = torch.cat((labels, label), axis=0)
+                    if torch.count_nonzero(label).item() == 0:
+                        skip_unlabeled += 1
+                        continue
+
+                    images = torch.cat((images, image), axis=0)
+                    labels = torch.cat((labels, label), axis=0)
 
         log = logging.getLogger(__name__)
         log.info(f"Skipped {skip_label} image(s) due to incoherent label")
@@ -93,6 +96,8 @@ class Patient:
 
     def __init__(self, filepath: str):
 
+        self.images, self.masks = [], []
+
         # Fetch list of all potential files
         files = [f for f in Path(filepath).iterdir() if f.suffixes == [".nii", ".gz"]]
 
@@ -106,7 +111,9 @@ class Patient:
             f_gt = self._gt_path(f)
 
             if f_gt in files:
-                self.images, self.masks = self.fetch_frames(f, f_gt)
+                image, mask = self.fetch_frames(f, f_gt)
+                self.images.append(image)
+                self.masks.append(mask)
 
     @staticmethod
     def _gt_path(filepath: Path) -> Path:

@@ -1,17 +1,15 @@
 experiment:
-  name: 'Pretraining2 SegResNetVAE with cine data'
+  name: 'Pretraining SegResNetVAE w/ cine data'
 
 data:
   acdc:
     include: True
-  dmd:
-    include: False
   scd:
     include: True
   mnm:
     include: True
   train_val_split: .75
-  batch_size: 8
+  batch_size: 256
 
 transformation:
   perform: False
@@ -19,11 +17,10 @@ transformation:
   batch_size: 16
 
 training:
-  learning_rate: 0.01
-  weight_decay: .00001
-  epochs: 100
-  self_supervised: False
-  semi_supervised: False
-  ss_model: 
-  pretrain_model: 'data/06_models/model_cycleGAN_cine2tag_v3.pt'
-  checkpoint: 'data/06_models/model_cycleGAN_cine2tag_v4.pt'
+  model_type: 'SegResNetVAE'
+  learning_rate: 0.005
+  weight_decay: .0001
+  gamma: 0.01
+  epochs: 200
+  pretrain_model:
+  checkpoint: 'data/06_models/model_cine_v6.pt'

@@ -1,20 +1,15 @@
+import logging
+
 import torch
 from torch import nn
-# from torch.utils.data.dataloader import default_collate
 
-# import matplotlib.pyplot as plt
-
-# from monai.transforms import AsDiscrete, Compose, Activations
 from monai.networks import nets, one_hot
-# from monai.networks.layers import Norm
-# from monai.data import decollate_batch
-# from monai.metrics import DiceMetric, compute_meandice , HausdorffDistanceMetric
+from monai.networks.layers import Norm
 from monai.losses import DiceCELoss
-# from monai.inferers import sliding_window_inference
 
 import kornia.augmentation as K
 
-from ..metrics import DiceMetric
+from ..metrics import DiceMetric, ShapeDistLoss
 
 
 class Net():
@@ -22,41 +17,61 @@ class Net():
     def __init__(
         self,
         load_model: str = None,
+        model_type: str = 'SegResNetVAE',
         learning_rate: float = 1e-2,
-        weight_decay: float = 1e-3
+        weight_decay: float = 1e-3,
+        gamma: float = 1e-2
     ) -> None:
         super(Net, self).__init__()
         # Add hparams as attribute
         self.__dict__.update(
             learning_rate=learning_rate,
-            weight_decay=weight_decay
+            weight_decay=weight_decay,
+            gamma=gamma,
+            model_type=model_type
         )
 
         self.num_classes = 2
+        self.in_channels = 1
+        self.spatial_dims = 2
 
-        # self._model = nets.UNet(
-        #     in_channels=1,
-        #     out_channels=self.num_classes,
-        #     spatial_dims=2,
-        #     channels=(16, 32, 64, 128, 256),
-        #     strides=(2, 2, 2, 2),
-        #     num_res_units=2,
-        #     norm=Norm.BATCH
-        # ).double()
+        if self.model_type == 'UNet':
+            self._model = nets.UNet(
+                in_channels=self.in_channels,
+                out_channels=self.num_classes,
+                spatial_dims=self.spatial_dims,
+                channels=(16, 32, 64, 128, 256),
+                strides=(2, 2, 2, 2),
+                num_res_units=2,
+                dropout=0.2,
+                norm=Norm.BATCH,
+                bias=False
+            )
 
-        self._model = nets.SegResNetVAE(
-            in_channels=1, out_channels=self.num_classes, input_image_size=(256, 256), spatial_dims=2
-        ).double()
+            # Weight initialization
+            self._model.apply(self.weights_init)
 
-        # Weight initialization
-        # self._model.apply(self.weights_init)
+        elif self.model_type == 'SegResNetVAE':
+            self._model = nets.SegResNetVAE(
+                in_channels=self.in_channels,
+                out_channels=self.num_classes,
+                input_image_size=(256, 256),
+                spatial_dims=self.spatial_dims
+            )
+
+        else:
+            raise ValueError(f'Expected UNet or SegResNetVAE model. Got {self.model_type} instead.')
+
+        # Start with double floats
+        # We're using AMP when training on GPUs
+        self._model = self._model.double()
 
         # Load checkpointed version of the model
         if load_model is not None:
             self._model.load_state_dict(torch.load(load_model))
 
-        self.criterion = DiceCELoss(include_background=False, to_onehot_y=True, sigmoid=True)
-
+        self.criterion = DiceCELoss(include_background=True, to_onehot_y=True, sigmoid=True)
+        self.shape_criterion = ShapeDistLoss(include_background=False, to_onehot_y=True, sigmoid=True)
         self.dice_metric = DiceMetric(include_background=False)
 
         proba: float = 0.2
@@ -74,14 +89,22 @@ class Net():
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
             self._model.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=3)
-        return optimizer, scheduler
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, "max", patience=10)
+        grad_scaler = torch.cuda.amp.GradScaler(enabled=True)
+        return optimizer, scheduler, grad_scaler
 
     def loss_fn(self, outputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        return self.criterion(outputs, targets)
+        return self.criterion(outputs, targets) + self.gamma * self.shape_criterion(outputs, targets)
 
     def forward(self, x) -> torch.Tensor:
-        return self._model(x)[0]
+        if self.model_type == 'UNet':
+            return self._model(x)
+
+        elif self.model_type == 'SegResNetVAE':
+            return self._model(x)[0]
+
+        else:
+            raise ValueError(f'Expected UNet or SegResNetVAE model. Got {self.model_type} instead.')
 
     def training_step(self, batch, batch_idx):
         images, labels = batch
@@ -126,6 +149,18 @@ class Net():
         mean_val_dice = outputs.get('dice') / outputs.get('batches')
         return dict(loss=mean_val_loss, dice=mean_val_dice)
 
+    def checkpoint(self, path: str):
+        log = logging.getLogger(__name__)
+
+        model_sd = (
+            self._model.module.state_dict()
+            if isinstance(self._model, nn.DataParallel)
+            else self._model.state_dict()
+        )
+
+        torch.save(model_sd, path)
+        log.info(f"Model checkpoint saved to {path}")
+
     def train(self):
         self._model.train()
     
@@ -139,6 +174,9 @@ class Net():
         Args:
             layer (torch.tensor): Model layer
         """
-        if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear):
+        module_types = [nn.Conv3d, nn.Conv2d, nn.ConvTranspose2d, nn.ConvTranspose3d]
+
+        if any([isinstance(layer, _type) for _type in module_types]):
             nn.init.xavier_normal_(layer.weight.data)
-            nn.init.zeros_(layer.bias.data)
+            if layer.bias is not None:
+                nn.init.zeros_(layer.bias.data)

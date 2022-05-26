@@ -1,7 +1,7 @@
 import functools
 import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 import pydicom
@@ -14,22 +14,7 @@ from .dataset import TagSegDataSet
 
 
 class ScdDataSet(TagSegDataSet):
-    def _load_except(self, filepath_raw: str) -> TensorDataset:
-
-        subfolders = list(Path(filepath_raw).iterdir())
-
-        contour_superfolder = list(
-            filter(lambda s: "Contours" in s.name, subfolders)
-        )[0]
-
-        contour_folder = list(
-            filter(lambda p: p.is_dir(), contour_superfolder.iterdir())
-        )[0]
-
-        dicom_superfolder = list(filter(lambda s: "DICOM" in s.name, subfolders))[0]
-        dicom_folder = list(
-            filter(lambda p: p.is_dir(), dicom_superfolder.iterdir())
-        )[0]
+    def _load_except(self, filepath_raw: List[str]) -> TensorDataset:
 
         images: torch.Tensor = torch.Tensor()
         labels: torch.Tensor = torch.Tensor()
@@ -37,69 +22,85 @@ class ScdDataSet(TagSegDataSet):
         skip_nan: int = 0
         skip_unlabeled: int = 0
 
-        patients = [d for d in contour_folder.iterdir() if d.is_dir()]
+        for filep in filepath_raw:
+            
+            subfolders = list(Path(filep).iterdir())
 
-        for patient in tqdm(patients):
+            contour_superfolder = list(
+                filter(lambda s: "Contours" in s.name, subfolders)
+            )[0]
+            contour_folder = list(
+                filter(lambda p: p.is_dir(), contour_superfolder.iterdir())
+            )[0]
 
-            if patient.name == "file-listings":
-                continue
+            dicom_superfolder = list(filter(lambda s: "DICOM" in s.name, subfolders))[0]
+            dicom_folder = list(
+                filter(lambda p: p.is_dir(), dicom_superfolder.iterdir())
+            )[0]
 
-            contours = [
-                f
-                for f in (patient / "contours-manual" / "IRCCI-expert").iterdir()
-                if (f.is_file() and f.suffix == ".txt")
-            ]
+            patients = [d for d in contour_folder.iterdir() if d.is_dir()]
 
-            cont_ptr = {}
-            for contour in contours:
-                _, _, no, _, _ = contour.stem.split("-")
+            for patient in tqdm(patients):
 
-                no = f"IM-0001-{int(no):04}"
+                if patient.name == "file-listings":
+                    continue
 
-                if no not in cont_ptr.keys():
-                    cont_ptr[no] = [contour]
-                else:
-                    cont_ptr[no].append(contour)
-
-            for no, conts in cont_ptr.items():
-                # choose only inner and outer
-                conts = [
-                    cont
-                    for cont in conts
-                    if ("icontour" in str(cont) or "ocontour" in str(cont))
+                contours = [
+                    f
+                    for f in (patient / "contours-manual" / "IRCCI-expert").iterdir()
+                    if (f.is_file() and f.suffix == ".txt")
                 ]
 
-                # skip annotations that don't include endo- and epi-cardial wall
-                if len(conts) < 2:
-                    continue
+                cont_ptr = {}
+                for contour in contours:
+                    _, _, no, _, _ = contour.stem.split("-")
 
-                image_path = dicom_folder / patient.name / "DICOM" / (no + ".dcm")
-                image = pydicom.dcmread(image_path).pixel_array.astype(np.float64)
+                    no = f"IM-0001-{int(no):04}"
 
-                mask_me = functools.partial(self.get_mask, image.shape)
-                # alphabetical sorting will yield inner before outer
-                inner, outer = tuple(map(mask_me, sorted(conts)))
+                    if no not in cont_ptr.keys():
+                        cont_ptr[no] = [contour]
+                    else:
+                        cont_ptr[no].append(contour)
 
-                label = (outer ^ inner).astype(np.float64)
+                for no, conts in cont_ptr.items():
+                    # choose only inner and outer
+                    conts = [
+                        cont
+                        for cont in conts
+                        if ("icontour" in str(cont) or "ocontour" in str(cont))
+                    ]
 
-                # Preprocess labels and images
-                label = self._preprocess_label()(
-                    label
-                )  # Label first as we use the resized version
-                image = image / image.max()  # To [0, 1] range
-                image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
+                    # skip annotations that don't include endo- and epi-cardial wall
+                    if len(conts) < 2:
+                        continue
 
-                # Exclude NaNs from dataset
-                if image.isnan().sum().item() > 0 or label.isnan().sum().item() > 0:
-                    skip_nan += 1
-                    continue
+                    image_path = dicom_folder / patient.name / "DICOM" / (no + ".dcm")
+                    image = pydicom.dcmread(image_path).pixel_array.astype(np.float64)
 
-                if torch.count_nonzero(label).item() == 0:
-                    skip_unlabeled += 1
-                    continue
+                    mask_me = functools.partial(self.get_mask, image.shape)
+                    # alphabetical sorting will yield inner before outer
+                    inner, outer = tuple(map(mask_me, sorted(conts)))
 
-                images = torch.cat((images, image), axis=0)
-                labels = torch.cat((labels, label), axis=0)
+                    label = (outer ^ inner).astype(np.float64)
+
+                    # Preprocess labels and images
+                    label = self._preprocess_label()(
+                        label
+                    )  # Label first as we use the resized version
+                    image = image / image.max()  # To [0, 1] range
+                    image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
+
+                    # Exclude NaNs from dataset
+                    if image.isnan().sum().item() > 0 or label.isnan().sum().item() > 0:
+                        skip_nan += 1
+                        continue
+
+                    if torch.count_nonzero(label).item() == 0:
+                        skip_unlabeled += 1
+                        continue
+
+                    images = torch.cat((images, image), axis=0)
+                    labels = torch.cat((labels, label), axis=0)
 
         log = logging.getLogger(__name__)
         log.info(f"Skipped {skip_nan} image(s) due to presence of NaN")

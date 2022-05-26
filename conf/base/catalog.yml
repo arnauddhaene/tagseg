@@ -21,13 +21,16 @@ scd_train:
   type: tagseg.data.scd_dataset.ScdDataSet
   filepath: data/03_primary/scd_train.pt
   load_args:
-    filepath_raw: data/01_raw/sunnybrook/training
+    filepath_raw: 
+      - data/01_raw/sunnybrook/training
+      - data/01_raw/sunnybrook/online
 
 scd_test:
   type: tagseg.data.scd_dataset.ScdDataSet
   filepath: data/03_primary/scd_test.pt
   load_args:
-    filepath_raw: data/01_raw/sunnybrook/testing
+    filepath_raw: 
+     - data/01_raw/sunnybrook/testing
 
 mnm_train:
   type: tagseg.data.mnm_dataset.MnmDataSet
@@ -49,7 +52,6 @@ mnm_test:
   load_args:
     filepath_raw: data/01_raw/OpenDataset/Testing/
     only_myo: True
-
 
 dmd:
   type: tagseg.data.dmd_dataset.DmdDataSet
