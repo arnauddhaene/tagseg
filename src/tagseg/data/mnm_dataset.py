@@ -1,14 +1,16 @@
 import logging
 from pathlib import Path, PosixPath
-from typing import List
+from typing import List, Dict, Any
 from itertools import product
 
 import numpy as np
+import pandas as pd
+
 import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
-from .dataset import TagSegDataSet
+from .dataset import TagSegDataSet, EvalInfoDataSet
 from .utils import load_nii
 
 
@@ -91,3 +93,66 @@ class MnmDataSet(TagSegDataSet):
         )
 
         return dataset
+
+
+class MnmEvaluator(EvalInfoDataSet):
+
+    def _load_except(self, filepath_raw: str, patient_info: str) -> pd.DataFrame:
+
+        # Initialize storage that will be converted to pd.DataFrame
+        storage: List[Dict[str, Any]] = []
+
+        pi = pd.read_csv(patient_info, index_col=0)
+
+        save_directory = Path(self._filepath.parent / self._filepath.stem)
+        Path.mkdir(save_directory, parents=True, exist_ok=True)
+
+        patients: List[PosixPath] = list(filter(lambda p: p.is_dir(), Path(filepath_raw).iterdir()))
+
+        # Iterate over each patient or 'external_code'
+        for ext_code in tqdm(patients, unit='patient'):
+
+            image_path = ext_code / f'{ext_code.name}_sa.nii.gz'
+            label_path = ext_code / f'{ext_code.name}_sa_gt.nii.gz'
+
+            assert all([image_path.exists(), label_path.exists()])
+
+            # Load images in shape format (width, height, slice, phase)
+            nii_images = load_nii(image_path)[0]
+            nii_labels = load_nii(label_path)[0].astype(np.int32)
+
+            # Find labeled slice/phase pairs
+            idx_valid_imgs = np.where(nii_labels == 2)
+            
+            # Perhaps the image is completely unlabeled
+            slices, phases = tuple(map(np.unique, idx_valid_imgs[2:]))
+
+            for c_slice, c_phase in product(slices, phases):
+
+                # Preprocess labels and images
+                image: np.ndarray = nii_images[..., c_slice, c_phase].astype(np.float64)
+                label: np.ndarray = nii_labels[..., c_slice, c_phase].astype(np.float64)
+
+                if 2 in np.unique(label):
+
+                    image_save_path = save_directory / f'{ext_code.name}_{c_slice}_{c_phase}_image.npy'
+                    with open(image_save_path, 'wb') as f:
+                        np.save(f, image)
+
+                    label_save_path = save_directory / f'{ext_code.name}_{c_slice}_{c_phase}_label.npy'
+                    with open(label_save_path, 'wb') as f:
+                        np.save(f, label)
+
+                    features = [
+                        'VendorName', 'Vendor', 'Centre', 'ED', 'ES',
+                        'Age', 'Pathology', 'Sex', 'Height', 'Weight'
+                    ]
+                    information = pi[pi['External code'] == ext_code.name][features].iloc[0].to_dict()
+
+                    storage.append({
+                        **information,
+                        'image_path': image_save_path.resolve(),
+                        'label_path': label_save_path.resolve()
+                    })
+
+        return pd.DataFrame(storage)

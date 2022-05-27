@@ -137,12 +137,12 @@ class ScdDataSet(TagSegDataSet):
 
 class ScdEvaluator(EvalInfoDataSet):
 
-    def _load_except(self, filepath_raw: List[str]) -> pd.DataFrame:
+    def _load_except(self, filepath_raw: List[str], patient_info: str) -> pd.DataFrame:
 
         # Initialize storage that will be converted to pd.DataFrame
         storage: List[Dict[str, Any]] = []
 
-        pi = pd.read_excel('../data/01_raw/sunnybrook/scd_patientdata.xlsx')
+        pi = pd.read_excel(patient_info)
 
         save_directory = Path(self._filepath.parent / self._filepath.stem)
         Path.mkdir(save_directory, parents=True, exist_ok=True)

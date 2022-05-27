@@ -1,5 +1,5 @@
 experiment:
-  name: 'Pretraining UNet w/ cine data (smaller model)'
+  name: 'Finetuning SegResNetVAE w/ tagged data'
 
 data:
   acdc:
@@ -9,18 +9,18 @@ data:
   mnm:
     include: True
   train_val_split: .75
-  batch_size: 256
+  batch_size: 128
 
 transformation:
-  perform: False
+  perform: True
   generator_model: data/06_models/netG_A2B.pth
   batch_size: 16
 
 training:
-  model_type: 'UNet'
+  model_type: 'SegResNetVAE'
   learning_rate: 0.005
   weight_decay: .0001
-  gamma: 0.01
+  gamma: 0.
   epochs: 200
-  pretrain_model:
-  checkpoint: 'data/06_models/model_cine_v7.pt'
+  pretrain_model: data/06_models/model_cine_v6/E100.pt
+  checkpoint: 'data/06_models/model_cine_v6_tag_v1.pt'
