@@ -40,12 +40,11 @@ class Net():
                 in_channels=self.in_channels,
                 out_channels=self.num_classes,
                 spatial_dims=self.spatial_dims,
-                channels=(16, 32, 64, 128, 256),
-                strides=(2, 2, 2, 2),
-                num_res_units=2,
-                dropout=0.2,
+                channels=(16, 32, 64, 128),
+                strides=(2, 2, 2),
+                num_res_units=1,
+                dropout=0.1,
                 norm=Norm.BATCH,
-                bias=False
             )
 
             # Weight initialization

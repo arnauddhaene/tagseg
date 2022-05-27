@@ -25,7 +25,8 @@ pandas==1.4.0
 scipy==1.5.2
 torch==1.10.2
 scikit_image==0.19.1
-aim==3.6.3
+aim==3.10.2
 kornia==0.6.3
 streamlit
 monai==0.8.1
+plotly==5.8.0

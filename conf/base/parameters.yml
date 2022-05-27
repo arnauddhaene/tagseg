@@ -1,5 +1,5 @@
 experiment:
-  name: 'Pretraining SegResNetVAE w/ cine data'
+  name: 'Pretraining UNet w/ cine data (smaller model)'
 
 data:
   acdc:
@@ -17,10 +17,10 @@ transformation:
   batch_size: 16
 
 training:
-  model_type: 'SegResNetVAE'
+  model_type: 'UNet'
   learning_rate: 0.005
   weight_decay: .0001
   gamma: 0.01
   epochs: 200
   pretrain_model:
-  checkpoint: 'data/06_models/model_cine_v6.pt'
+  checkpoint: 'data/06_models/model_cine_v7.pt'
