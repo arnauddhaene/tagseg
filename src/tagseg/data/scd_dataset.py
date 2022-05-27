@@ -1,16 +1,17 @@
 import functools
 import logging
 from pathlib import Path
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 
 import numpy as np
+import pandas as pd
 import pydicom
 import torch
 from skimage.draw import polygon, polygon2mask
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
-from .dataset import TagSegDataSet
+from .dataset import TagSegDataSet, EvalInfoDataSet
 
 
 class ScdDataSet(TagSegDataSet):
@@ -132,3 +133,100 @@ class ScdDataSet(TagSegDataSet):
         if lines[-1] == "":
             lines = lines[:-1]
         return np.array([x_y.split(" ") for x_y in lines]).astype(np.float64)
+
+
+class ScdEvaluator(EvalInfoDataSet):
+
+    def _load_except(self, filepath_raw: List[str]) -> pd.DataFrame:
+
+        # Initialize storage that will be converted to pd.DataFrame
+        storage: List[Dict[str, Any]] = []
+
+        pi = pd.read_excel('../data/01_raw/sunnybrook/scd_patientdata.xlsx')
+
+        save_directory = Path(self._filepath.parent / self._filepath.stem)
+        Path.mkdir(save_directory, parents=True, exist_ok=True)
+
+        for filep in filepath_raw:
+            
+            subfolders = list(Path(filep).iterdir())
+
+            contour_superfolder = list(
+                filter(lambda s: "Contours" in s.name, subfolders)
+            )[0]
+            contour_folder = list(
+                filter(lambda p: p.is_dir(), contour_superfolder.iterdir())
+            )[0]
+
+            dicom_superfolder = list(filter(lambda s: "DICOM" in s.name, subfolders))[0]
+            dicom_folder = list(
+                filter(lambda p: p.is_dir(), dicom_superfolder.iterdir())
+            )[0]
+
+            patients = [d for d in contour_folder.iterdir() if d.is_dir()]
+
+            for patient in tqdm(patients):
+
+                if patient.name == "file-listings":
+                    continue
+
+                contours = [
+                    f
+                    for f in (patient / "contours-manual" / "IRCCI-expert").iterdir()
+                    if (f.is_file() and f.suffix == ".txt")
+                ]
+
+                cont_ptr = {}
+                for contour in contours:
+                    _, _, no, _, _ = contour.stem.split("-")
+
+                    no = f"IM-0001-{int(no):04}"
+
+                    if no not in cont_ptr.keys():
+                        cont_ptr[no] = [contour]
+                    else:
+                        cont_ptr[no].append(contour)
+
+                for no, conts in cont_ptr.items():
+                    # choose only inner and outer
+                    conts = [
+                        cont
+                        for cont in conts
+                        if ("icontour" in str(cont) or "ocontour" in str(cont))
+                    ]
+
+                    # skip annotations that don't include endo- and epi-cardial wall
+                    if len(conts) < 2:
+                        continue
+
+                    image_path = dicom_folder / patient.name / "DICOM" / (no + ".dcm")
+                    image = pydicom.dcmread(image_path).pixel_array.astype(np.float64)
+
+                    mask_me = functools.partial(ScdDataSet.get_mask, image.shape)
+                    # alphabetical sorting will yield inner before outer
+                    inner, outer = tuple(map(mask_me, sorted(conts)))
+                    label = (outer ^ inner).astype(np.float64)
+
+                    image_save_path = save_directory / f'{no}_image.npy'
+                    with open(image_save_path, 'wb') as f:
+                        np.save(f, image)
+
+                    label_save_path = save_directory / f'{no}_label.npy'
+                    with open(label_save_path, 'wb') as f:
+                        np.save(f, label)
+
+                    # Convert from SC-HF-NI-07 to SC-HF-NI-7
+                    pname = str(patient.name).split('-')
+                    pname[-1] = str(int(pname[-1]))
+                    pname = '-'.join(pname)
+
+                    information = pi[pi.OriginalID == pname][['Gender', 'Age', 'Pathology']].iloc[0] \
+                        .to_dict()
+
+                    storage.append({
+                        **information,
+                        'image_path': image_save_path.resolve(),
+                        'label_path': label_save_path.resolve()
+                    })
+
+        return pd.DataFrame(storage)

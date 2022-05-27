@@ -1,17 +1,21 @@
 import logging
-from pathlib import Path
-from typing import Tuple
 
-import numpy as np
-import torch
-from torch.utils.data import TensorDataset
+from pathlib import Path
+from typing import Dict, Any, List
 from tqdm import tqdm
 
-from .dataset import TagSegDataSet
-from .utils import load_nii
+import numpy as np
+import pandas as pd
+
+import torch
+from torch.utils.data import TensorDataset
+
+from .dataset import TagSegDataSet, EvalInfoDataSet
+from .utils import load_nii, camel_to_snake
 
 
 class AcdcDataSet(TagSegDataSet):
+
     def _load_except(self, filepath_raw: str, only_myo: bool) -> TensorDataset:
 
         # Get all patient folders from main raw downloaded ACDC directory
@@ -91,14 +95,48 @@ class AcdcDataSet(TagSegDataSet):
         return dataset
 
 
+class AcdcEvaluator(EvalInfoDataSet):
+
+    def _load_except(self, filepath_raw: str) -> pd.DataFrame:
+        # Get all patient folders from main raw downloaded ACDC directory
+        patient_paths = [
+            ppath for ppath in Path(filepath_raw).iterdir() if ppath.is_dir()
+        ]
+
+        # Initialize storage that will be converted to pd.DataFrame
+        storage: List[Dict[str, Any]] = []
+
+        # Iterate over all patients
+        patients_pbar = tqdm(patient_paths, leave=False)
+        for ppath in patients_pbar:
+            patients_pbar.set_description(f"Processing {ppath.name}...")
+            
+            save_path = self._filepath.parent / self._filepath.stem
+            storage.extend(Patient(ppath, has_mask=False, save_path=save_path).storage)
+
+        return pd.DataFrame(storage)
+
+
 class Patient:
     """Class that loads cine MR images and annotations from an ACDC patient."""
 
-    def __init__(self, filepath: str):
+    def __init__(self, filepath: str, has_mask: bool = True, save_path: str = None):
 
         self.images, self.masks = [], []
+        self.storage = []
+        self.information = {}
 
-        # Fetch list of all potential files
+        # Read patient information from .cfg file
+        with open(filepath / 'Info.cfg', 'r') as f:
+            pi = f.read().split('\n')
+
+        # Remove potentially empty last line
+        pi = [line for line in pi if len(line) > 0]
+        # Convert each line from YAML format to dictionary element
+        # Note: yaml reader does not work for some reason, probably because of file extension
+        self.information = {camel_to_snake(str(k)): float(v) for k, v in map(lambda l: l.split(':'), pi)}
+
+        # Fetch list of all potential images
         files = [f for f in Path(filepath).iterdir() if f.suffixes == [".nii", ".gz"]]
 
         for f in files:
@@ -106,14 +144,28 @@ class Patient:
             # Discard ground truth as those are fetched by their image
             if "_4d" in str(f) or "_gt" in str(f):
                 continue
+            
+            image = self.fetch_frames(f)
 
-            # Fetch path of mask following dataset nomenclature
-            f_gt = self._gt_path(f)
-
-            if f_gt in files:
-                image, mask = self.fetch_frames(f, f_gt)
+            # Store image information for training
+            if has_mask:
                 self.images.append(image)
-                self.masks.append(mask)
+
+                # Fetch path of mask following dataset nomenclature
+                f_gt = self._gt_path(f)
+                if f_gt in files:
+                    self.masks.append(self.fetch_frames(f_gt))
+
+            # Store information for evaluation (testing)
+            else:
+                # Loop through slices and save image in intermediate format
+                directory = Path(save_path) / f.stem.split('.')[0]
+                Path.mkdir(directory, parents=True, exist_ok=True)
+                for i, slic in enumerate(image):
+                    image_path = directory / f'slice{i:02}.npy'
+                    with open(image_path, 'wb') as f:
+                        np.save(f, slic)
+                    self.storage.append({**self.information, 'image_path': image_path.resolve()})
 
     @staticmethod
     def _gt_path(filepath: Path) -> Path:
@@ -128,20 +180,15 @@ class Patient:
         return filepath.parent / (filepath.stem.split(".")[0] + "_gt.nii.gz")
 
     @staticmethod
-    def fetch_frames(
-        image_path: Path, mask_path: Path
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def fetch_frames(path: Path) -> np.ndarray:
         """Load data from image and mask locations
 
         Args:
-            image_path (Path): location of image.
-            mask_path (Path): location of mask.
+            path (Path): location of image.
 
         Returns:
-            Tuple[ndarray, ndarray]: image (1, H, W) and mask (1, H, W)
+            ndarray: image (S, H, W)
         """
+        imt, _, _ = load_nii(path)
 
-        imt, _, _ = load_nii(image_path)
-        gt, _, _ = load_nii(mask_path)
-
-        return imt.swapaxes(0, 2), gt.swapaxes(0, 2)
+        return imt.swapaxes(0, 2)

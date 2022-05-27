@@ -11,11 +11,10 @@ acdc_train:
     only_myo: True
 
 acdc_test:
-  type: tagseg.data.acdc_dataset.AcdcDataSet
-  filepath: data/03_primary/acdc_test.pt
+  type: tagseg.data.acdc_dataset.AcdcEvaluator
+  filepath: data/03_primary/acdc_test.csv
   load_args:
     filepath_raw: data/01_raw/acdc-testing
-    only_myo: True
 
 scd_train:
   type: tagseg.data.scd_dataset.ScdDataSet
@@ -26,8 +25,8 @@ scd_train:
       - data/01_raw/sunnybrook/online
 
 scd_test:
-  type: tagseg.data.scd_dataset.ScdDataSet
-  filepath: data/03_primary/scd_test.pt
+  type: tagseg.data.scd_dataset.ScdEvaluator
+  filepath: data/03_primary/scd_test.csv
   load_args:
     filepath_raw: 
      - data/01_raw/sunnybrook/testing
@@ -43,14 +42,14 @@ mnm_val:
   type: tagseg.data.mnm_dataset.MnmDataSet
   filepath: data/03_primary/mnm_val.pt
   load_args:
-    filepath_raw: data/01_raw/OpenDataset/Validation/
+    filepath_raw: data/01_raw/OpenDataset/Validation
     only_myo: True
 
 mnm_test:
   type: tagseg.data.mnm_dataset.MnmDataSet
   filepath: data/03_primary/mnm_test.pt
   load_args:
-    filepath_raw: data/01_raw/OpenDataset/Testing/
+    filepath_raw: data/01_raw/OpenDataset/Testing
     only_myo: True
 
 dmd:
