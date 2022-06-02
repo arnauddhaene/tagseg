@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path, PosixPath
-from typing import List, Dict, Any
+from typing import List
 from itertools import product
 
 import numpy as np
@@ -10,7 +10,9 @@ import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
-from .dataset import TagSegDataSet, EvalInfoDataSet
+import torchio as tio
+
+from .dataset import TagSegDataSet
 from .utils import load_nii
 
 
@@ -95,12 +97,12 @@ class MnmDataSet(TagSegDataSet):
         return dataset
 
 
-class MnmEvaluator(EvalInfoDataSet):
+class MnmEvaluator(TagSegDataSet):
 
-    def _load_except(self, filepath_raw: str, patient_info: str) -> pd.DataFrame:
+    def _load_except(self, filepath_raw: str, patient_info: str) -> tio.SubjectsDataset:
 
         # Initialize storage that will be converted to pd.DataFrame
-        storage: List[Dict[str, Any]] = []
+        subjects: List[tio.Subject] = []
 
         pi = pd.read_csv(patient_info, index_col=0)
 
@@ -131,28 +133,21 @@ class MnmEvaluator(EvalInfoDataSet):
 
                 # Preprocess labels and images
                 image: np.ndarray = nii_images[..., c_slice, c_phase].astype(np.float64)
-                label: np.ndarray = nii_labels[..., c_slice, c_phase].astype(np.float64)
+                label: np.ndarray = nii_labels[..., c_slice, c_phase].astype(np.float64) == 2
 
-                if 2 in np.unique(label):
+                features = [
+                    'VendorName', 'Vendor', 'Centre', 'ED', 'ES',
+                    'Age', 'Pathology', 'Sex', 'Height', 'Weight'
+                ]
+                information = pi[pi['External code'] == ext_code.name][features].iloc[0].to_dict()
 
-                    image_save_path = save_directory / f'{ext_code.name}_{c_slice}_{c_phase}_image.npy'
-                    with open(image_save_path, 'wb') as f:
-                        np.save(f, image)
+                subjects.append(
+                    tio.Subject(
+                        image=tio.ScalarImage(
+                            tensor=self._preprocess_image(0.456, 0.224)(image)[None, ...]),
+                        mask=tio.LabelMap(tensor=self._preprocess_label()(label)[None, ...]),
+                        **information
+                    )
+                )
 
-                    label_save_path = save_directory / f'{ext_code.name}_{c_slice}_{c_phase}_label.npy'
-                    with open(label_save_path, 'wb') as f:
-                        np.save(f, label)
-
-                    features = [
-                        'VendorName', 'Vendor', 'Centre', 'ED', 'ES',
-                        'Age', 'Pathology', 'Sex', 'Height', 'Weight'
-                    ]
-                    information = pi[pi['External code'] == ext_code.name][features].iloc[0].to_dict()
-
-                    storage.append({
-                        **information,
-                        'image_path': image_save_path.resolve(),
-                        'label_path': label_save_path.resolve()
-                    })
-
-        return pd.DataFrame(storage)
+        return tio.SubjectsDataset(subjects)

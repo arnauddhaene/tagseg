@@ -65,7 +65,7 @@ def prepare_input(
     generator.eval()
 
     batch_size = transformation_params['batch_size']
-    loader = DataLoader(dataset, batch_size=batch_size)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     output_B = torch.Tensor(len(dataset), 1, 256, 256).to(device)
 

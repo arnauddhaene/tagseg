@@ -1,16 +1,14 @@
 import logging
 
 from pathlib import Path
-from typing import Dict, Any, List
 from tqdm import tqdm
 
 import numpy as np
-import pandas as pd
 
 import torch
 from torch.utils.data import TensorDataset
 
-from .dataset import TagSegDataSet, EvalInfoDataSet
+from .dataset import TagSegDataSet
 from .utils import load_nii, camel_to_snake
 
 
@@ -95,26 +93,28 @@ class AcdcDataSet(TagSegDataSet):
         return dataset
 
 
-class AcdcEvaluator(EvalInfoDataSet):
+# USELESS BECAUSE THERE ARE NO LABELS
 
-    def _load_except(self, filepath_raw: str) -> pd.DataFrame:
-        # Get all patient folders from main raw downloaded ACDC directory
-        patient_paths = [
-            ppath for ppath in Path(filepath_raw).iterdir() if ppath.is_dir()
-        ]
+# class AcdcEvaluator(LoadableDataSet):
 
-        # Initialize storage that will be converted to pd.DataFrame
-        storage: List[Dict[str, Any]] = []
+#     def _load_except(self, filepath_raw: str) -> pd.DataFrame:
+#         # Get all patient folders from main raw downloaded ACDC directory
+#         patient_paths = [
+#             ppath for ppath in Path(filepath_raw).iterdir() if ppath.is_dir()
+#         ]
 
-        # Iterate over all patients
-        patients_pbar = tqdm(patient_paths, leave=False)
-        for ppath in patients_pbar:
-            patients_pbar.set_description(f"Processing {ppath.name}...")
+#         # Initialize storage that will be converted to pd.DataFrame
+#         storage: List[Dict[str, Any]] = []
+
+#         # Iterate over all patients
+#         patients_pbar = tqdm(patient_paths, leave=False)
+#         for ppath in patients_pbar:
+#             patients_pbar.set_description(f"Processing {ppath.name}...")
             
-            save_path = self._filepath.parent / self._filepath.stem
-            storage.extend(Patient(ppath, has_mask=False, save_path=save_path).storage)
+#             save_path = self._filepath.parent / self._filepath.stem
+#             storage.extend(Patient(ppath, has_mask=False, save_path=save_path).storage)
 
-        return pd.DataFrame(storage)
+#         return pd.DataFrame(storage)
 
 
 class Patient:

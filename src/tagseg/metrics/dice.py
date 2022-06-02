@@ -4,7 +4,7 @@ import torch
 class DiceMetric():
 
     def __init__(self, include_background: bool = True):
-        self.offset = 1 if include_background else 0
+        self.offset = 0 if include_background else 1
 
     @staticmethod
     def dice_coefficient(y_pred: torch.Tensor, y: torch.Tensor):

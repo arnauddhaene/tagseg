@@ -1,5 +1,5 @@
 experiment:
-  name: 'Finetuning SegResNetVAE w/ tagged data'
+  name: 'Finetuning UNet w/ tagged data and middle SDL'
 
 data:
   acdc:
@@ -17,10 +17,15 @@ transformation:
   batch_size: 16
 
 training:
-  model_type: 'SegResNetVAE'
+  model_type: 'UNet'
   learning_rate: 0.005
   weight_decay: .0001
-  gamma: 0.
+  gamma: 0.05
   epochs: 200
-  pretrain_model: data/06_models/model_cine_v6/E100.pt
-  checkpoint: 'data/06_models/model_cine_v6_tag_v1.pt'
+  pretrain_model: data/06_models/model_cine_v7/E085.pt
+  checkpoint: 'data/06_models/model_cine_v7_tag_v4.pt'
+
+evaluation:
+  model_type: 'SegResNetVAE'
+  load_model: data/06_models/model_cine_v6_tag_v1.pt
+  save_path: data/08_reporting/model_cine_v6_tag_v1

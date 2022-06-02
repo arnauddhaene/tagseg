@@ -10,11 +10,11 @@ acdc_train:
     filepath_raw: data/01_raw/acdc-training
     only_myo: True
 
-acdc_test:
-  type: tagseg.data.acdc_dataset.AcdcEvaluator
-  filepath: data/03_primary/acdc_test.csv
-  load_args:
-    filepath_raw: data/01_raw/acdc-testing
+# acdc_test:
+#   type: tagseg.data.acdc_dataset.AcdcEvaluator
+#   filepath: data/03_primary/acdc_test.csv
+#   load_args:
+#     filepath_raw: data/01_raw/acdc-testing
 
 scd_train:
   type: tagseg.data.scd_dataset.ScdDataSet
@@ -26,11 +26,15 @@ scd_train:
 
 scd_test:
   type: tagseg.data.scd_dataset.ScdEvaluator
-  filepath: data/03_primary/scd_test.csv
+  filepath: data/03_primary/scd_test.pt
   load_args:
     filepath_raw: 
      - data/01_raw/sunnybrook/testing
     patient_info: data/01_raw/sunnybrook/scd_patientdata.xlsx
+
+scd_test_tagged:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/03_primary/scd_test_tagged.pt
 
 mnm_train:
   type: tagseg.data.mnm_dataset.MnmDataSet
@@ -48,18 +52,36 @@ mnm_val:
 
 mnm_test:
   type: tagseg.data.mnm_dataset.MnmEvaluator
-  filepath: data/03_primary/mnm_test.csv
+  filepath: data/03_primary/mnm_test.pt
   load_args:
     filepath_raw: data/01_raw/OpenDataset/Testing
     patient_info: data/01_raw/OpenDataset/211230_M&Ms_Dataset_information_diagnosis_opendataset.csv
 
+mnm_test_tagged:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/03_primary/mnm_test_tagged.pt
+
 dmd:
   type: tagseg.data.dmd_dataset.DmdDataSet
-  filepath: data/01_raw/dmd_roi
+  filepath: data/03_primary/dmd_test.pt
+  load_args:
+    filepath_raw: data/01_raw/dmd_roi
 
 tdmd:
   type: tagseg.data.dmd_dataset.DmdTimeDataSet
   filepath: data/01_raw/dmd_roi
+
+mnm_results:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/07_model_output/mnm_results.pt
+
+scd_results:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/07_model_output/scd_results.pt
+
+dmd_results:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/07_model_output/dmd_results.pt
 
 model_input:
   type: pickle.PickleDataSet

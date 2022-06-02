@@ -11,7 +11,7 @@ from tagseg.models.segmenter import Net
 from tagseg.models.trainer import Trainer
 
 
-def load_model(training_params: Dict[str, Any]) -> Dict[str, Any]:
+def load_model(training_params: Dict[str, Any]) -> Net:
 
     return Net(
         load_model=training_params['pretrain_model'],
@@ -23,12 +23,13 @@ def load_model(training_params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def train_model(
-    model: nn.Module,
+    model: Net,
     loader_train: DataLoader,
     loader_val: DataLoader,
 ) -> Dict[str, nn.Module]:
 
     params = ConfigLoader("conf/base").get("parameters*", "parameters*/**")
+    del params['evaluation']
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

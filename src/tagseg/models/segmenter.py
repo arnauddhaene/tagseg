@@ -3,9 +3,15 @@ import logging
 import torch
 from torch import nn
 
+import numpy as np
+
+from skimage import morphology, measure
+from medpy.metric.binary import dc
+
 from monai.networks import nets, one_hot
 from monai.networks.layers import Norm
 from monai.losses import DiceCELoss
+from monai.metrics import compute_hausdorff_distance
 
 import kornia.augmentation as K
 
@@ -147,6 +153,29 @@ class Net():
         mean_val_loss = outputs.get('loss') / outputs.get('examples')
         mean_val_dice = outputs.get('dice') / outputs.get('batches')
         return dict(loss=mean_val_loss, dice=mean_val_dice)
+
+    def test_step(self, batch):
+        images, labels = batch
+
+        outputs = self.forward(images)
+        
+        y_pred = outputs.sigmoid().argmax(dim=1).detach().cpu()[0] == 1
+        y = one_hot(labels, num_classes=2)
+        
+        y_pred = morphology.binary_closing(y_pred)
+        blobs, num = measure.label(y_pred, background=0, return_num=True)
+        sizes = [(blobs == i).sum() for i in range(1, num + 1)]
+        
+        if len(sizes) > 0:
+            blob_index = np.argmax(sizes) + 1
+            y_pred = (blobs == blob_index)
+
+            hd = compute_hausdorff_distance(y_pred=y_pred, y=y)
+            dice = dc(y_pred, y)
+
+            return {"dice": dice, "hd": hd}
+        else:
+            return {"dice": np.nan, "hd": np.nan}
 
     def checkpoint(self, path: str):
         log = logging.getLogger(__name__)

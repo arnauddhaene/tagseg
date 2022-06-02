@@ -1,15 +1,14 @@
-from .dataset import TagSegDataSet, EvalInfoDataSet
-from .acdc_dataset import AcdcDataSet, AcdcEvaluator
+from .dataset import TagSegDataSet, LoadableDataSet
+from .acdc_dataset import AcdcDataSet
 from .scd_dataset import ScdDataSet, ScdEvaluator
 from .mnm_dataset import MnmDataSet, MnmEvaluator
 
 __all__ = [
     TagSegDataSet,
-    EvalInfoDataSet,
+    LoadableDataSet,
     AcdcDataSet,
     ScdDataSet,
     MnmDataSet,
-    AcdcEvaluator,
     ScdEvaluator,
     MnmEvaluator,
 ]

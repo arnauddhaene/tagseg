@@ -152,3 +152,28 @@ class Trainer():
                 model.checkpoint(checkpoint_path / f'E{epoch + 1:03}.pt')
 
             pbar.set_description(status)
+
+    # def test(
+    #     self,
+    #     model: Net,
+    #     test_dataset: tio.SubjectsDataset
+    # ):
+    #     torch.set_grad_enabled(False)
+    #     model.eval()
+        
+    #     pbar = tqdm(test_dataset.iterrows(), unit="example", leave=False)
+    #     pbar.set_description('Iterating through test example')
+
+    #     for idx, row in pbar:
+            
+    #         # Features in the pd.DataFrame that contain the paths to the saved test images
+    #         paths = [row.image_path, row.label_path]
+    #         batch = tuple([torch.tensor(np.load(path)[None, None, :, :]) for path in paths])
+            
+    #         batch = self.tensor_tuple_to(self.device, batch)
+    #         test_out = model.test_step(batch)
+
+    #         for metric, value in test_out:
+    #             row[metric] = value
+
+    #     return test_dataset

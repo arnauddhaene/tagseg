@@ -1,7 +1,7 @@
 import functools
 import logging
 from pathlib import Path
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List
 
 import numpy as np
 import pandas as pd
@@ -10,8 +10,9 @@ import torch
 from skimage.draw import polygon, polygon2mask
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
+import torchio as tio
 
-from .dataset import TagSegDataSet, EvalInfoDataSet
+from .dataset import TagSegDataSet
 
 
 class ScdDataSet(TagSegDataSet):
@@ -135,12 +136,12 @@ class ScdDataSet(TagSegDataSet):
         return np.array([x_y.split(" ") for x_y in lines]).astype(np.float64)
 
 
-class ScdEvaluator(EvalInfoDataSet):
+class ScdEvaluator(TagSegDataSet):
 
-    def _load_except(self, filepath_raw: List[str], patient_info: str) -> pd.DataFrame:
+    def _load_except(self, filepath_raw: List[str], patient_info: str) -> tio.SubjectsDataset:
 
         # Initialize storage that will be converted to pd.DataFrame
-        storage: List[Dict[str, Any]] = []
+        subjects: List[tio.Subject] = []
 
         pi = pd.read_excel(patient_info)
 
@@ -207,14 +208,6 @@ class ScdEvaluator(EvalInfoDataSet):
                     inner, outer = tuple(map(mask_me, sorted(conts)))
                     label = (outer ^ inner).astype(np.float64)
 
-                    image_save_path = save_directory / f'{no}_image.npy'
-                    with open(image_save_path, 'wb') as f:
-                        np.save(f, image)
-
-                    label_save_path = save_directory / f'{no}_label.npy'
-                    with open(label_save_path, 'wb') as f:
-                        np.save(f, label)
-
                     # Convert from SC-HF-NI-07 to SC-HF-NI-7
                     pname = str(patient.name).split('-')
                     pname[-1] = str(int(pname[-1]))
@@ -223,10 +216,12 @@ class ScdEvaluator(EvalInfoDataSet):
                     information = pi[pi.OriginalID == pname][['Gender', 'Age', 'Pathology']].iloc[0] \
                         .to_dict()
 
-                    storage.append({
-                        **information,
-                        'image_path': image_save_path.resolve(),
-                        'label_path': label_save_path.resolve()
-                    })
+                    # tio takes CHW[D] input size
+                    subjects.append(tio.Subject(
+                        image=tio.ScalarImage(
+                            tensor=self._preprocess_image(0.456, 0.224)(image)[None, ...]),
+                        mask=tio.LabelMap(tensor=self._preprocess_label()(label)[None, ...]),
+                        **information
+                    ))
 
-        return pd.DataFrame(storage)
+        return tio.SubjectsDataset(subjects)
