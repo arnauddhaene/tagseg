@@ -62,12 +62,18 @@ mnm_test_tagged:
   filepath: data/03_primary/mnm_test_tagged.pt
 
 dmd:
+  type: tagseg.data.dmd_dataset.DmdH5DataSet
+  filepath: data/03_primary/dmd_alex.pt
+  load_args:
+    filepath_raw: data/01_raw/dmd_alex
+
+dmd_old:
   type: tagseg.data.dmd_dataset.DmdDataSet
   filepath: data/03_primary/dmd_test.pt
   load_args:
     filepath_raw: data/01_raw/dmd_roi
 
-tdmd:
+tdmd_old:
   type: tagseg.data.dmd_dataset.DmdTimeDataSet
   filepath: data/01_raw/dmd_roi
 

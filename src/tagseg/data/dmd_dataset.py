@@ -5,12 +5,65 @@ import numpy as np
 import pydicom
 import torch
 import torchio as tio
+import h5py
 from kedro.io import AbstractDataSet
 from skimage.draw import polygon, polygon2mask
 from torch.utils.data import TensorDataset
 from torchvision import transforms
 
 from .dataset import TagSegDataSet
+
+
+class DmdH5DataSet(TagSegDataSet):
+    def _load_except(self, filepath_raw: str) -> TensorDataset:
+
+        filepath_raw = Path(filepath_raw)
+
+        images: torch.Tensor = torch.Tensor()
+        labels: torch.Tensor = torch.Tensor()
+
+        for roi_path in [path for path in filepath_raw.iterdir() if path.stem.split('_')[-1] == 'roi']:
+            
+            img_path = roi_path.parent / ('_'.join(roi_path.stem.split('_')[:-1]) + '.h5')
+
+            assert img_path.is_file()
+
+            img_hf = h5py.File(img_path, 'r')
+            roi_hf = h5py.File(roi_path, 'r')
+
+            assert 'imt' in img_hf.keys()
+            assert all(map(lambda key: key in roi_hf.keys(), ['pts_interp_inner', 'pts_interp_outer']))
+
+            imt = np.array(img_hf.get('imt')).swapaxes(0, 2)
+            pts_inner = np.array(list(map(lambda i: np.array(roi_hf[roi_hf.get('pts_interp_inner')[i][0]]),
+                                          range(roi_hf.get('pts_interp_inner').shape[0]))))
+            pts_outer = np.array(list(map(lambda i: np.array(roi_hf[roi_hf.get('pts_interp_outer')[i][0]]),
+                                          range(roi_hf.get('pts_interp_inner').shape[0]))))
+            
+            for t in range(imt.shape[0]):
+                image = imt[t]
+                image = image / image.max()
+                image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
+
+                inner = polygon2mask(imt.shape[1:],
+                                     np.array(polygon(pts_inner[t, :, 1], pts_inner[t, :, 0])).T)
+                outer = polygon2mask(imt.shape[1:],
+                                     np.array(polygon(pts_outer[t, :, 1], pts_outer[t, :, 0])).T)
+
+                label = outer ^ inner
+                label = label.astype(np.float64)
+                label = self._preprocess_label()(label)
+
+                images = torch.cat((images, image), axis=0)
+                labels = torch.cat((labels, label), axis=0)
+
+                dataset = TensorDataset()
+                dataset.tensors = (
+                    images,
+                    labels,
+                )
+
+        return dataset
 
 
 class DmdDataSet(TagSegDataSet):

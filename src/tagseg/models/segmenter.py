@@ -40,6 +40,8 @@ class Net():
         self.num_classes = 2
         self.in_channels = 1
         self.spatial_dims = 2
+        self.input_image_size = (256, 256)
+        self.spacing = (1.0, 1.0)
 
         if self.model_type == 'UNet':
             self._model = nets.UNet(
@@ -64,8 +66,23 @@ class Net():
                 spatial_dims=self.spatial_dims
             )
 
+        elif self.model_type == 'DynUNet':
+            kernels, strides = get_kernels_strides(self.input_image_size, self.spacing)
+
+            self._model = nets.DynUNet(
+                spatial_dims=self.spatial_dims,
+                in_channels=self.in_channels,
+                out_channels=self.num_classes,
+                kernel_size=kernels,
+                strides=strides,
+                upsample_kernel_size=strides[1:],
+                res_block=True,
+                trans_bias=True,
+                dropout=0.1
+            )
+
         else:
-            raise ValueError(f'Expected UNet or SegResNetVAE model. Got {self.model_type} instead.')
+            raise ValueError(f'Expected UNet, DynUNet, or SegResNetVAE model. Got {self.model_type} instead.')
 
         # Start with double floats
         # We're using AMP when training on GPUs
@@ -102,7 +119,7 @@ class Net():
         return self.criterion(outputs, targets) + self.gamma * self.shape_criterion(outputs, targets)
 
     def forward(self, x) -> torch.Tensor:
-        if self.model_type == 'UNet':
+        if self.model_type in ['UNet', 'DynUNet']:
             return self._model(x)
 
         elif self.model_type == 'SegResNetVAE':
@@ -208,3 +225,33 @@ class Net():
             nn.init.xavier_normal_(layer.weight.data)
             if layer.bias is not None:
                 nn.init.zeros_(layer.bias.data)
+
+
+def get_kernels_strides(sizes, spacings):
+    """Inspired from https://github.com/Project-MONAI/tutorials/"""
+
+    input_size = sizes
+    strides, kernels = [], []
+    while True:
+        spacing_ratio = [sp / min(spacings) for sp in spacings]
+        stride = [
+            2 if ratio <= 2 and size >= 8 else 1
+            for (ratio, size) in zip(spacing_ratio, sizes)
+        ]
+        kernel = [3 if ratio <= 2 else 1 for ratio in spacing_ratio]
+        if all(s == 1 for s in stride):
+            break
+        for idx, (i, j) in enumerate(zip(sizes, stride)):
+            if i % j != 0:
+                raise ValueError(
+                    f"Patch size is not supported, \
+                    please try to modify the size {input_size[idx]} in the spatial dimension {idx}."
+                )
+        sizes = [i / j for i, j in zip(sizes, stride)]
+        spacings = [i * j for i, j in zip(spacings, stride)]
+        kernels.append(kernel)
+        strides.append(stride)
+
+    strides.insert(0, len(spacings) * [1])
+    kernels.append(len(spacings) * [3])
+    return kernels, strides

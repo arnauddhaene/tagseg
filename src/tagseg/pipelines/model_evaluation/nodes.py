@@ -107,6 +107,8 @@ def evaluate(
             batch = Trainer.tensor_tuple_to(device, batch)
             image, label = batch
 
+            # Extracted mean and std from training data
+            # TODO: automate this procedure by going into model_input
             image = 0.18098551 * (image - image.mean()) / image.std() + 0.7507453
         
             preds = model.forward(image)
