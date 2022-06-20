@@ -10,7 +10,7 @@ def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([
         # This is needed to save dmd as model_input
         node(
-            lambda x: x, "dmd", "model_input",
+            lambda x: x, "dmd_train", "model_input",
             name="preprocess_dmd"
         )
     ])

@@ -14,6 +14,7 @@ conf/local/**
 .telemetry
 .aim/
 .vscode
+bin/
 
 # ignore potentially sensitive credentials files
 conf/**/*credentials*

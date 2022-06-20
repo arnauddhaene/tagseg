@@ -1,5 +1,5 @@
 experiment:
-  name: 'Pretraining DynUNet w/ cine images'
+  name: 'Finetuning SegResNetVAE w/ simtagged data'
 
 data:
   acdc:
@@ -9,23 +9,24 @@ data:
   mnm:
     include: True
   train_val_split: .75
-  batch_size: 100
+  batch_size: 128
 
 transformation:
-  perform: False
+  perform: True
+  physics: True
   generator_model: data/06_models/netG_A2B.pth
-  batch_size: 16
+  batch_size: 32
 
 training:
-  model_type: 'DynUNet'
+  model_type: SegResNetVAE
   learning_rate: .005
   weight_decay: .0001
   gamma: 0.
   epochs: 200
-  pretrain_model: 
-  checkpoint: 'data/06_models/model_cine_v8.pt'
+  pretrain_model: data/06_models/model_cine_v6/E100.pt
+  checkpoint: data/06_models/model_cine_v6_simtag_v1.pt
 
 evaluation:
-#   model_type: 'SegResNetVAE'
-#   load_model: data/06_models/model_cine_v6_tag_v1.pt
-#   save_path: data/08_reporting/model_cine_v6_tag_v1
+  # model_type: UNet
+  # load_model: data/06_models/model_cine_v7_tag_v3.pt
+  # save_path: data/08_reporting/model_cine_v7_tag_v3

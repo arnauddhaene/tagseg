@@ -52,7 +52,7 @@ class DmdH5DataSet(TagSegDataSet):
 
                 label = outer ^ inner
                 label = label.astype(np.float64)
-                label = self._preprocess_label()(label)
+                label = self._preprocess_label()(label).unsqueeze(0)
 
                 images = torch.cat((images, image), axis=0)
                 labels = torch.cat((labels, label), axis=0)

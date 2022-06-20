@@ -126,6 +126,8 @@ class Patient:
         self.storage = []
         self.information = {}
 
+        filepath = Path(filepath)
+
         # Read patient information from .cfg file
         with open(filepath / 'Info.cfg', 'r') as f:
             pi = f.read().split('\n')
@@ -134,7 +136,7 @@ class Patient:
         pi = [line for line in pi if len(line) > 0]
         # Convert each line from YAML format to dictionary element
         # Note: yaml reader does not work for some reason, probably because of file extension
-        self.information = {camel_to_snake(str(k)): float(v) for k, v in map(lambda l: l.split(':'), pi)}
+        self.information = {camel_to_snake(str(k)): str(v) for k, v in map(lambda l: l.split(':'), pi)}
 
         # Fetch list of all potential images
         files = [f for f in Path(filepath).iterdir() if f.suffixes == [".nii", ".gz"]]

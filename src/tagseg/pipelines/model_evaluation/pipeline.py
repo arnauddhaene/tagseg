@@ -19,11 +19,10 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
         node(
             evaluate,
-            ["mnm_test_tagged", "scd_test_tagged", "dmd", "params:evaluation"],
+            ["mnm_test_tagged", "scd_test_tagged", "params:evaluation"],
             dict(
                 mnm_results="mnm_results",
                 scd_results="scd_results",
-                dmd_results="dmd_results"
             ),
             name="evaluate"
         )

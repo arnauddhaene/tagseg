@@ -6,6 +6,7 @@ import logging
 import pandas as pd
 
 from monai.networks import one_hot
+from monai.metrics import compute_hausdorff_distance
 
 import torchio as tio
 
@@ -68,7 +69,6 @@ def tag_subjects(
 def evaluate(
     tagged_mnm: tio.SubjectsDataset,
     tagged_scd: tio.SubjectsDataset,
-    dmd: tio.SubjectsDataset,
     eval_params: Dict[Any, str]
 ) -> Dict[str, tio.SubjectsDataset]:
 
@@ -80,7 +80,6 @@ def evaluate(
     ds_map = {
         'mnm_results': tagged_mnm,
         'scd_results': tagged_scd,
-        'dmd_results': dmd
     }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -117,9 +116,13 @@ def evaluate(
             y = one_hot(label, num_classes=2)
 
             dice = model.dice_metric(y_pred=y_pred, y=y)
+            hd95 = compute_hausdorff_distance(
+                one_hot(y_pred.argmax(dim=1, keepdim=True), num_classes=2), y,
+                include_background=False, percentile=95)
 
             storage.append({
                 'dice': dice.item(),
+                'hd95': hd95.item(),
                 **dict(zip(features, map(subject.get, features)))
             })
 
@@ -128,6 +131,7 @@ def evaluate(
                 'mask': tio.LabelMap(tensor=label.detach().cpu()),
                 'pred': tio.LabelMap(tensor=y_pred.argmax(dim=1).unsqueeze(0).detach().cpu()),
                 'dice': dice.item(),
+                'hd95': hd95.item(),
                 **dict(zip(features, map(subject.get, features)))
             }))
 

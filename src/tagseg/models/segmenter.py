@@ -104,7 +104,7 @@ class Net():
             K.RandomElasticTransform(p=proba),
             K.RandomGaussianNoise(p=proba),
             K.RandomSharpness(p=proba),
-            K.RandomGaussianBlur(kernel_size=(3, 3), sigma=(0.1, 0.1), p=proba),
+            K.RandomGaussianBlur(kernel_size=(7, 7), sigma=(1.5, 1.5), p=proba),
             data_keys=["input", "mask"],
         )
 
