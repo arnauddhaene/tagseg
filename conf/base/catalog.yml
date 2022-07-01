@@ -61,11 +61,17 @@ mnm_test_tagged:
   type: kedro.extras.datasets.pickle.PickleDataSet
   filepath: data/03_primary/mnm_test_tagged.pt
 
-dmd:
+dmd_train:
   type: tagseg.data.dmd_dataset.DmdH5DataSet
-  filepath: data/03_primary/dmd_alex.pt
+  filepath: data/03_primary/dmd_train.pt
   load_args:
-    filepath_raw: data/01_raw/dmd_alex
+    filepath_raw: data/01_raw/dmd_alex/train
+
+dmd_test:
+  type: tagseg.data.dmd_dataset.DmdH5Evaluator
+  filepath: data/03_primary/dmd_test.pt
+  load_args:
+    filepath_raw: data/01_raw/dmd_alex/test/
 
 dmd_old:
   type: tagseg.data.dmd_dataset.DmdDataSet
@@ -87,7 +93,7 @@ scd_results:
 
 dmd_results:
   type: kedro.extras.datasets.pickle.PickleDataSet
-  filepath: data/07_model_output/dmd_results.pt
+  filepath: data/07_model_output/<model-name>/dmd_results.pt
 
 model_input:
   type: pickle.PickleDataSet

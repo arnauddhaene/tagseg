@@ -66,6 +66,77 @@ class DmdH5DataSet(TagSegDataSet):
         return dataset
 
 
+class DmdH5Evaluator(TagSegDataSet):
+
+    @staticmethod
+    def extract_information(img_path: Path) -> Dict[str, str]:
+
+        info = img_path.stem.split('_')
+
+        if len(info) == 5:
+            group, disease, location, pid, slic = info
+            subgroup = 0
+        elif len(info) == 6:
+            group, disease, subgroup, location, pid, slic = info
+
+        disease = 'control' if disease == 'C' else 'dmd'
+        location = 'UCLA' if location == 'U' else 'CHOC'
+
+        return dict(zip(
+            ['group', 'subgroup', 'disease', 'location', 'patient_id', 'slice'],
+            [group, subgroup, disease, location, pid, slic]
+        ))
+
+    def _load_except(self, filepath_raw: str) -> tio.SubjectsDataset:
+
+        filepath_raw = Path(filepath_raw)
+
+        subjects: List[tio.Subject] = []
+
+        for roi_path in [path for path in filepath_raw.iterdir() if path.stem.split('_')[-1] == 'roi']:
+            
+            img_path = roi_path.parent / ('_'.join(roi_path.stem.split('_')[:-1]) + '.h5')
+
+            assert img_path.is_file()
+
+            img_hf = h5py.File(img_path, 'r')
+            roi_hf = h5py.File(roi_path, 'r')
+
+            assert 'imt' in img_hf.keys()
+            assert all(map(lambda key: key in roi_hf.keys(), ['pts_interp_inner', 'pts_interp_outer']))
+
+            imt = np.array(img_hf.get('imt')).swapaxes(0, 2)
+            pts_inner = np.array(list(map(lambda i: np.array(roi_hf[roi_hf.get('pts_interp_inner')[i][0]]),
+                                          range(roi_hf.get('pts_interp_inner').shape[0]))))
+            pts_outer = np.array(list(map(lambda i: np.array(roi_hf[roi_hf.get('pts_interp_outer')[i][0]]),
+                                          range(roi_hf.get('pts_interp_inner').shape[0]))))
+            
+            for t in range(imt.shape[0]):
+                image = imt[t]
+                image = image / image.max()
+                image = self._preprocess_image(0.456, 0.224)(image).unsqueeze(0)
+
+                inner = polygon2mask(imt.shape[1:],
+                                     np.array(polygon(pts_inner[t, :, 1], pts_inner[t, :, 0])).T)
+                outer = polygon2mask(imt.shape[1:],
+                                     np.array(polygon(pts_outer[t, :, 1], pts_outer[t, :, 0])).T)
+
+                label = outer ^ inner
+                label = label.astype(np.float64)
+                label = self._preprocess_label()(label).unsqueeze(0)
+
+                subjects.append(
+                    tio.Subject(
+                        image=tio.ScalarImage(tensor=image),
+                        mask=tio.LabelMap(tensor=label),
+                        timeframe=t,
+                        **self.extract_information(img_path)
+                    )
+                )
+
+        return tio.SubjectsDataset(subjects)
+
+
 class DmdDataSet(TagSegDataSet):
     def _load_except(self, filepath_raw: str) -> TensorDataset:
         
