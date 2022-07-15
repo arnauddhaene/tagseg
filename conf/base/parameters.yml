@@ -1,32 +1,32 @@
-experiment:
-  name: Finetuning CycleGANned DynUNet w/ dmd
+# experiment:
+#   name: Finetuning DynUNet on cine pretrained w/ dmd images
 
-data:
-  acdc:
-    include: False
-  scd:
-    include: False
-  mnm:
-    include: False
-  train_val_split: .75
-  batch_size: 80
+# data:
+#   acdc:
+#     include: False
+#   scd:
+#     include: False
+#   mnm:
+#     include: False
+#   train_val_split: .75
+#   batch_size: 80
 
-transformation:
-  perform: False
-  physics: False
-  generator_model: data/06_models/netG_A2B.pth
-  batch_size: 32
+# transformation:
+#   perform: False
+#   physics: False
+#   generator_model: data/06_models/netG_A2B.pth
+#   batch_size: 32
 
-training:
-  model_type: DynUNet
-  learning_rate: .005
-  weight_decay: .0001
-  gamma: 0.
-  epochs: 150
-  pretrain_model: data/06_models/model_cine_v8_tag_v1.pt
-  checkpoint: data/06_models/model_cine_v8_tag_v1_dmd_v2.pt
+# training:
+#   model_type: DynUNet
+#   learning_rate: .005
+#   weight_decay: .0001
+#   gamma: 0.
+#   epochs: 150
+#   pretrain_model: data/06_models/model_cine_v8/E130.pt
+#   checkpoint: data/06_models/model_cine_v8_dmd_v0.pt
 
 evaluation:
   model_type: SegResNetVAE
-  load_model: data/06_models/model_cine_v6_tag_v1_dmd_v2.pt
-  save_path: data/08_reporting/model_cine_v6_tag_v1_dmd_v2
+  load_model: data/06_models/model_dmd_v8.pt
+  save_path: data/08_reporting/model_dmd_v8

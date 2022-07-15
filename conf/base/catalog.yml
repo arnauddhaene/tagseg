@@ -71,7 +71,7 @@ dmd_test:
   type: tagseg.data.dmd_dataset.DmdH5Evaluator
   filepath: data/03_primary/dmd_test.pt
   load_args:
-    filepath_raw: data/01_raw/dmd_alex/test/
+    filepath_raw: data/01_raw/dmd_alex/train
 
 dmd_old:
   type: tagseg.data.dmd_dataset.DmdDataSet
@@ -93,7 +93,7 @@ scd_results:
 
 dmd_results:
   type: kedro.extras.datasets.pickle.PickleDataSet
-  filepath: data/07_model_output/<model-name>/dmd_results.pt
+  filepath: data/07_model_output/model_dmd_v8/dmd_results_train.pt
 
 model_input:
   type: pickle.PickleDataSet

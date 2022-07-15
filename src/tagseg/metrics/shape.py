@@ -32,7 +32,7 @@ class ShapeDistLoss(_Loss):
         softmax: bool = False,
         other_act: Optional[Callable] = None,
         smooth_nr: float = 1e-8,
-        smooth_k: float = 2e-1,
+        smooth_k: float = 1e1,
         reduction: Union[LossReduction, str] = LossReduction.MEAN,
     ) -> None:
         """
