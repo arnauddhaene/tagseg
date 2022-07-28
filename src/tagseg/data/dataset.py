@@ -30,8 +30,9 @@ class LoadableDataSet(PickleDataSet):
 
 class TagSegDataSet(LoadableDataSet):
 
+    @staticmethod
     def _preprocess_image(
-        self, mu: float, sigma: float
+        mu: float, sigma: float
     ) -> transforms.Compose:
         """Preprocess image
 
@@ -50,7 +51,8 @@ class TagSegDataSet(LoadableDataSet):
             ]
         )
 
-    def _preprocess_label(self) -> transforms.Compose:
+    @staticmethod
+    def _preprocess_label() -> transforms.Compose:
         """Preprocess mask
 
         Returns:

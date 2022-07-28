@@ -8,7 +8,13 @@ def create_pipeline(**kwargs) -> Pipeline:
         node(
             evaluate_dmd,
             ["dmd_test", "params:evaluation"],
-            "dmd_results",
+            "output",
             name="evaluate_dmd"
+        ),
+        node(
+            evaluate_dmd,
+            ["dmd_test_train", "params:evaluation"],
+            "output_train",
+            name="evaluate_dmd_train"
         )
     ])

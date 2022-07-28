@@ -123,13 +123,16 @@ class DmdH5Evaluator(TagSegDataSet):
 
                 label = outer ^ inner
                 label = label.astype(np.float64)
-                label = self._preprocess_label()(label).unsqueeze(0)
+                mask = self._preprocess_label()(label).unsqueeze(0)
 
                 subjects.append(
                     tio.Subject(
                         image=tio.ScalarImage(tensor=image),
-                        mask=tio.LabelMap(tensor=label),
+                        mask=tio.LabelMap(tensor=mask),
+                        raw_mask=tio.LabelMap(tensor=torch.tensor(label[None, None, ...])),
                         timeframe=t,
+                        voxel_spacing=1.4285714626312,
+                        raw_shape=imt.shape[1:],
                         **self.extract_information(img_path)
                     )
                 )
