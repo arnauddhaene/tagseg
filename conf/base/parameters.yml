@@ -1,1 +1,31 @@
-experiment_name: 'DMD Finetuning v1 (New: Adam, DF)'
+# experiment:
+#   name: Finetuning CycleGANned SegResNetVAE w/ dmd w/ gamma
+
+# data:
+#   acdc:
+#     include: False
+#   scd:
+#     include: False
+#   mnm:
+#     include: False
+#   train_val_split: .75
+#   batch_size: 128
+
+# transformation:
+#   perform: False
+#   physics: False
+#   generator_model: data/06_models/netG_A2B.pth
+#   batch_size: 32
+
+# training:
+#   model_type: SegResNetVAE
+#   learning_rate: .005
+#   weight_decay: .0001
+#   gamma: 0.05
+#   epochs: 150
+#   pretrain_model: data/06_models/model_cine_v6_tag_v1.pt
+#   checkpoint: data/06_models/model_cine_v6_tag_v1_dmd_v3
+
+evaluation:
+  model_type: SegResNetVAE
+  load_model: data/06_models/model_cine_v6_tag_v1_dmd_v3/E150.pt

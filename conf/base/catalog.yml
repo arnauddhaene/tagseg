@@ -3,34 +3,100 @@
 # Documentation for this file format can be found in "The Data Catalog"
 # Link: https://kedro.readthedocs.io/en/stable/05_data/01_data_catalog.html
 
-raw_acdc_data:
+acdc_train:
   type: tagseg.data.acdc_dataset.AcdcDataSet
-  filepath: data/01_raw/acdc-training
+  filepath: data/03_primary/acdc_train.pt
+  load_args:
+    filepath_raw: data/01_raw/acdc-training
+    only_myo: True
 
-dmd_data:
+# acdc_test:
+#   type: tagseg.data.acdc_dataset.AcdcEvaluator
+#   filepath: data/03_primary/acdc_test.csv
+#   load_args:
+#     filepath_raw: data/01_raw/acdc-testing
+
+scd_train:
+  type: tagseg.data.scd_dataset.ScdDataSet
+  filepath: data/03_primary/scd_train.pt
+  load_args:
+    filepath_raw: 
+      - data/01_raw/sunnybrook/training
+      - data/01_raw/sunnybrook/online
+
+scd_test:
+  type: tagseg.data.scd_dataset.ScdEvaluator
+  filepath: data/03_primary/scd_test.pt
+  load_args:
+    filepath_raw: 
+     - data/01_raw/sunnybrook/testing
+    patient_info: data/01_raw/sunnybrook/scd_patientdata.xlsx
+
+scd_test_tagged:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/03_primary/scd_test_tagged.pt
+
+mnm_train:
+  type: tagseg.data.mnm_dataset.MnmDataSet
+  filepath: data/03_primary/mnm_train.pt
+  load_args:
+    filepath_raw: data/01_raw/OpenDataset/Training/Labeled
+    only_myo: True
+
+mnm_val:
+  type: tagseg.data.mnm_dataset.MnmDataSet
+  filepath: data/03_primary/mnm_val.pt
+  load_args:
+    filepath_raw: data/01_raw/OpenDataset/Validation
+    only_myo: True
+
+mnm_test:
+  type: tagseg.data.mnm_dataset.MnmEvaluator
+  filepath: data/03_primary/mnm_test.pt
+  load_args:
+    filepath_raw: data/01_raw/OpenDataset/Testing
+    patient_info: data/01_raw/OpenDataset/211230_M&Ms_Dataset_information_diagnosis_opendataset.csv
+
+mnm_test_tagged:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/03_primary/mnm_test_tagged.pt
+
+dmd_train:
+  type: tagseg.data.dmd_dataset.DmdH5DataSet
+  filepath: data/03_primary/dmd_train.pt
+  load_args:
+    filepath_raw: data/01_raw/dmd_alex/train
+
+dmd_test_train:
+  type: tagseg.data.dmd_dataset.DmdH5Evaluator
+  filepath: data/03_primary/dmd_test_train.pt
+  load_args:
+    filepath_raw: data/01_raw/dmd_alex/train
+
+dmd_test:
+  type: tagseg.data.dmd_dataset.DmdH5Evaluator
+  filepath: data/03_primary/dmd_test.pt
+  load_args:
+    filepath_raw: data/01_raw/dmd_alex/test
+
+dmd_old:
   type: tagseg.data.dmd_dataset.DmdDataSet
-  filepath: data/01_raw/dmd_roi
+  filepath: data/03_primary/dmd_test.pt
+  load_args:
+    filepath_raw: data/01_raw/dmd_roi
 
-dmd_time_data:
+tdmd_old:
   type: tagseg.data.dmd_dataset.DmdTimeDataSet
   filepath: data/01_raw/dmd_roi
 
-raw_acdc_data:
-  type: tagseg.data.acdc_dataset.AcdcDataSet
-  filepath: data/01_raw/acdc-training
+mnm_results:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/07_model_output/mnm_results.pt
 
-acdc_data_tagged: 
-  type: pickle.PickleDataSet
-  filepath: data/05_model_input/acdc_dataset_tagged.pt
+scd_results:
+  type: kedro.extras.datasets.pickle.PickleDataSet
+  filepath: data/07_model_output/scd_results.pt
 
-acdc_data_cine: 
+model_input:
   type: pickle.PickleDataSet
-  filepath: data/05_model_input/acdc_dataset_cine.pt
-
-acdc_data_cine_only_myo: 
-  type: pickle.PickleDataSet
-  filepath: data/05_model_input/acdc_dataset_cine_only_myo.pt
-
-acdc_data_tagged_only_myo: 
-  type: pickle.PickleDataSet
-  filepath: data/05_model_input/acdc_dataset_tagged_only_myo.pt
+  filepath: data/05_model_input/model_input.pt

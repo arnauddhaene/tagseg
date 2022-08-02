@@ -8,8 +8,8 @@ def create_pipeline(**kwargs) -> Pipeline:
         [
             node(
                 load_model,
-                ["params:data_params"],
-                dict(model="model", device="device"),
+                ["params:training"],
+                "model",
                 name="load_model",
             ),
             node(
@@ -18,16 +18,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "model",
                     "loader_train",
                     "loader_val",
-                    "device",
-                    "params:train_params",
-                    "params:experiment_name",
                 ],
                 "trained_model",
                 name="train_model",
             ),
             node(
                 save_model,
-                ["trained_model", "params:trained_model"],
+                ["trained_model", "params:training"],
                 None,
                 name="save_model",
             ),

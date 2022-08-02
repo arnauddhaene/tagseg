@@ -1,56 +1,120 @@
+import functools
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
+from tqdm import tqdm
 
-from kedro.config import ConfigLoader
-from kedro.extras.datasets.pickle import PickleDataSet
-from torch.utils.data import TensorDataset
+import torch
+from torch.autograd import Variable
+from torch.utils.data import DataLoader, TensorDataset
 
-from tagseg.data.acdc_dataset import AcdcDataSet
-from tagseg.data.dmd_dataset import DmdDataSet
+from tagseg.data.utils import merge_tensor_datasets
+from tagseg.models.cyclegan import Generator
+from tagseg.data.utils import SimulateTags
 
 
-def preprocess_acdc(params: Dict[str, Any]) -> TensorDataset:
+def join_data(
+    dataset_acdc: TensorDataset,
+    dataset_scd: TensorDataset,
+    dataset_mnm: TensorDataset
+):
+    return dict(acdc=dataset_acdc, scd=dataset_scd, mnm=dataset_mnm)
 
+
+def merge_data(
+    datasets: Dict[str, TensorDataset], data_params: Dict[str, Any]
+) -> TensorDataset:
     log = logging.getLogger(__name__)
 
-    tagged, only_myo = params["tagged"], params["only_myo"]
-    conf_cat = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
+    dataset: List[TensorDataset] = []
 
-    ds_name: str = "acdc_data"
-    ds_name += "_tagged" if tagged else "_cine"
-    ds_name += "_only_myo" if only_myo else ""
+    for name, data in datasets.items():
+        assert name in data_params.keys()
+        if data_params[name]["include"]:
+            log.info(f"Including dataset {name} of length {len(data)}.")
+            dataset.append(data)
 
-    dataset = PickleDataSet(filepath=conf_cat[ds_name]["filepath"])
+    return functools.reduce(merge_tensor_datasets, dataset)
 
-    if dataset.exists():
-        log.info(
-            f"Requested dataset exists, loading from {conf_cat[ds_name]['filepath']}"
+
+def prepare_input(
+    dataset: TensorDataset, transformation_params: Dict[str, Any]
+) -> TensorDataset:
+    log = logging.getLogger(__name__)
+
+    output_dataset = TensorDataset()
+
+    if not transformation_params.get('perform'):
+        log.info('Skipping cine->tag transformation, using cine and saving to file.')
+        
+        output_dataset.tensors = (
+            dataset.tensors[0],
+            dataset.tensors[1].unsqueeze(1)
         )
-        return dataset.load()
+        
     else:
-        log.info(
-            f"Requested dataset not found, loading it from raw files at \
-                {conf_cat['raw_acdc_data']['filepath']}"
-        )
-        # Specific image preprocessing occurs within AcdcDataSet loading
-        acdc = AcdcDataSet(
-            filepath=conf_cat["raw_acdc_data"]["filepath"],
-            tagged=tagged,
-            only_myo=only_myo,
-        )
-        # Save dataset for next time
-        dataset.save(acdc.load())
-        log.info("Requested dataset saved to file.")
-        return dataset.load()
 
+        if transformation_params.get('physics'):
+            log.info("Running image transformation using physics-driven method.")
 
-def preprocess_dmd(params: Dict[str, Any]) -> TensorDataset:
+            output = torch.Tensor(len(dataset), 1, 256, 256)
 
-    log = logging.getLogger(__name__)
+            for i, (image, label) in tqdm(enumerate(dataset), total=len(dataset)):
 
-    catalog = ConfigLoader("conf/base").get("catalog*", "catalog*/**")
-    path = catalog['dmd_data']['filepath']
+                # Remove batch dimension
+                image = image.squeeze(0)
 
-    log.info(f"Loading requested dataset from raw files at {path}")
+                # Normalize to [0, 255] for input into SimulateTags
+                image = ((image - image.min()) / (image.max() - image.min())) * 255
+                image = SimulateTags(label=label, myo_index=1)(image)
 
-    return DmdDataSet(filepath=path).load()
+                # Standardise based on statistics of A->B transformation
+                # This simply makes the models' input distribution 'comparable'
+                image = 0.18098551 * (image - image.mean()) / image.std() + 0.7507453
+                
+                # Add batch dimension
+                output[i] = image.unsqueeze(0)
+
+            output_dataset.tensors = (
+                output.cpu(),
+                dataset.tensors[1].unsqueeze(1).cpu(),
+            )
+
+            log.info("Images transformed to tagged with SimulateTags and saved to file.")
+
+        else:
+            log.info("Running image transformation using CycleGAN.")
+
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+            nc: int = 1  # no. of channels
+            generator: torch.nn.Module = Generator(nc, nc)
+
+            saved_model: str = transformation_params["generator_model"]
+            generator.load_state_dict(torch.load(saved_model))
+            generator.to(device)
+
+            log.info(f"Loaded {str(generator.__class__)} from {saved_model}.")
+
+            generator.eval()
+
+            batch_size = transformation_params['batch_size']
+            loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+            output_B = torch.Tensor(len(dataset), 1, 256, 256).to(device)
+
+            for i, (batch, _) in tqdm(enumerate(loader), total=len(loader)):
+                span = slice(i * batch_size, i * batch_size + batch.shape[0])
+
+                t = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
+
+                batch = Variable(t(*batch.shape).copy_(batch)).to(device)
+                output_B[span] = (0.5 * generator(batch).data + 1.0).unsqueeze(0)
+
+            output_dataset.tensors = (
+                output_B.cpu(),
+                dataset.tensors[1].unsqueeze(1).cpu(),
+            )
+
+            log.info("Images transformed to tagged with CycleGAN and saved to file.")
+    
+    return output_dataset

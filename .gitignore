@@ -1,12 +1,20 @@
 ##########################
 # KEDRO PROJECT
 
+# custom
+CUDA_VISIBLE_DEVICES
+.lr_find*
+*.npz
+figures/
+notebooks/data/
+
 # ignore all local configuration
 conf/local/**
 !conf/local/.gitkeep
 .telemetry
 .aim/
 .vscode
+bin/
 
 # ignore potentially sensitive credentials files
 conf/**/*credentials*
